@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Trading Agents · UI Explorations</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Fraunces:wght@500;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: #fafaf9;
+    color: #1a1a1a;
+  }
+  .font-serif { font-family: 'Fraunces', Georgia, serif; }
+  .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+  .design-card {
+    background: white;
+    border-radius: 24px;
+    border: 1px solid #e7e5e4;
+    overflow: hidden;
+    transition: all 0.3s ease;
+  }
+  .design-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.08);
+    border-color: #d6d3d1;
+  }
+
+  .preview {
+    aspect-ratio: 16/10;
+    background: var(--bg, #18181b);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 10px; border-radius: 999px;
+    font-size: 11px; font-weight: 600;
+    background: #f3f4f6; color: #374151;
+  }
+  .pill-dark { background: #1f2937; color: white; }
+
+  .stat-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    padding: 8px 0;
+    border-top: 1px solid #f3f4f6;
+    font-size: 12px;
+  }
+
+  .star-filled { color: #fbbf24; }
+  .star-empty { color: #e7e5e4; }
+
+  .preview-1 {
+    background: #0a0e1a;
+    background-image:
+      linear-gradient(rgba(31,42,68,0.5) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(31,42,68,0.5) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+
+  .preview-2 {
+    background: #faf7f2;
+  }
+
+  .preview-3 {
+    background: #0d0d0f;
+    background-image:
+      radial-gradient(circle at 30% 30%, rgba(177,74,255,0.3), transparent 50%),
+      radial-gradient(circle at 70% 70%, rgba(196,255,62,0.2), transparent 50%);
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="border-b border-stone-200 bg-white sticky top-0 z-20">
+  <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-rose-500 flex items-center justify-center text-white font-bold">TA</div>
+      <div>
+        <div class="font-semibold text-sm">Trading Agents</div>
+        <div class="text-[10px] text-stone-500">UI explorations · 3 directions</div>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <a href="https://herbs-waggle-puzzle.ngrok-free.dev/" target="_blank" class="text-xs text-stone-500 hover:text-stone-900 flex items-center gap-1">
+        <i data-lucide="external-link" class="w-3 h-3"></i> Current UI
+      </a>
+    </div>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="max-w-4xl mx-auto px-6 pt-16 pb-12 text-center">
+  <div class="inline-block px-3 py-1 rounded-full bg-stone-100 text-xs text-stone-600 mb-4">3 alternative directions · interactive mockups</div>
+  <h1 class="font-serif text-5xl font-bold mb-4 leading-tight">Three takes on the<br/>same trading agents.</h1>
+  <p class="text-stone-600 leading-relaxed max-w-2xl mx-auto">
+    Your current UI is information-rich but flat — every report looks the same, and the agents themselves are invisible.
+    Here are three directions, each optimized for a different user and use case. Open any one to interact with it.
+  </p>
+</section>
+
+<!-- 3-PANEL GRID -->
+<section class="max-w-7xl mx-auto px-6 pb-16">
+  <div class="grid grid-cols-3 gap-6">
+
+    <!-- CARD 1: COMMAND BRIDGE -->
+    <a href="01-command-bridge.html" target="_blank" class="design-card block">
+      <div class="preview preview-1 p-3 flex gap-2">
+        <div class="w-12 bg-slate-900 rounded">
+          <div class="m-1 h-2 bg-emerald-500/30 rounded"></div>
+          <div class="m-1 h-2 bg-rose-500/30 rounded"></div>
+          <div class="m-1 h-2 bg-rose-500/30 rounded"></div>
+          <div class="m-1 h-2 bg-rose-500/30 rounded"></div>
+        </div>
+        <div class="flex-1 bg-slate-900/80 rounded p-2 flex flex-col gap-1.5">
+          <div class="flex items-center justify-between">
+            <div class="text-emerald-400 text-[8px] font-bold">AMD · SELL</div>
+            <div class="flex gap-0.5">
+              <div class="w-2 h-2 bg-emerald-500 rounded-full"></div>
+              <div class="w-2 h-2 bg-amber-500 rounded-full"></div>
+              <div class="w-2 h-2 bg-rose-500 rounded-full"></div>
+            </div>
+          </div>
+          <div class="bg-slate-800 rounded p-1.5 flex-1 relative">
+            <svg viewBox="0 0 100 30" class="w-full h-full">
+              <path d="M0,25 L20,22 L40,18 L60,15 L80,8 L100,12" stroke="#00e5b3" stroke-width="1" fill="none"/>
+              <path d="M0,25 L20,22 L40,18 L60,15 L80,8 L100,12 L100,30 L0,30" fill="#00e5b3" fill-opacity="0.15"/>
+            </svg>
+          </div>
+          <div class="grid grid-cols-4 gap-1">
+            <div class="bg-slate-800 rounded h-3"></div>
+            <div class="bg-slate-800 rounded h-3"></div>
+            <div class="bg-slate-800 rounded h-3"></div>
+            <div class="bg-slate-800 rounded h-3"></div>
+          </div>
+        </div>
+        <div class="w-16 bg-slate-900 rounded p-1 space-y-1">
+          <div class="bg-emerald-500/20 rounded h-2"></div>
+          <div class="bg-slate-800 rounded h-1.5"></div>
+          <div class="bg-slate-800 rounded h-1.5"></div>
+          <div class="bg-rose-500/20 rounded h-2"></div>
+          <div class="bg-slate-800 rounded h-1.5"></div>
+          <div class="bg-amber-500/20 rounded h-2"></div>
+        </div>
+      </div>
+
+      <div class="p-6">
+        <div class="flex items-center justify-between mb-3">
+          <div class="text-xs font-mono text-stone-400">DESIGN 01</div>
+          <div class="pill pill-dark">Pro / desktop</div>
+        </div>
+        <h2 class="font-serif text-2xl font-bold mb-2">Command Bridge</h2>
+        <p class="text-sm text-stone-600 leading-relaxed mb-4">
+          Bloomberg-terminal energy. Three-panel layout with watchlist sparklines, deep-dive analysis center, and live agent debate sidebar.
+          Built for power users who keep this open in a second monitor all day.
+        </p>
+
+        <div class="space-y-0 mt-4">
+          <div class="stat-row">
+            <span class="text-stone-500">Best for</span>
+            <span class="font-medium text-right">Active day traders</span>
+          </div>
+          <div class="stat-row">
+            <span class="text-stone-500">Information density</span>
+            <span class="text-amber-500">★★★★★</span>
+          </div>
+          <div class="stat-row">
+            <span class="text-stone-500">Learning curve</span>
+            <span class="text-amber-500">★★★<span class="text-stone-300">★★</span></span>
+          </div>
+          <div class="stat-row">
+            <span class="text-stone-500">Engagement style</span>
+            <span class="font-medium text-right">Scanning</span>
+          </div>
+        </div>
+
+        <button class="w-full mt-4 bg-stone-900 text-white rounded-xl py-2.5 text-sm font-semibold flex items-center justify-center gap-2">
+          Open mockup <i data-lucide="arrow-up-right" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </a>
+
+    <!-- CARD 2: AGENT COUNCIL -->
+    <a href="02-agent-council.html" target="_blank" class="design-card block">
+      <div class="preview preview-2 p-3 flex gap-2">
+        <div class="w-12 bg-white rounded shadow-sm p-1 space-y-1">
+          <div class="bg-stone-900 rounded h-2"></div>
+          <div class="bg-stone-100 rounded h-1.5"></div>
+          <div class="bg-stone-100 rounded h-1.5"></div>
+          <div class="bg-stone-100 rounded h-1.5"></div>
+        </div>
+        <div class="flex-1 space-y-1.5">
+          <div class="bg-white rounded p-1.5 shadow-sm flex items-start gap-1">
+            <div class="w-3 h-3 rounded bg-amber-200 flex items-center justify-center text-[6px]">📊</div>
+            <div class="flex-1 space-y-0.5">
+              <div class="bg-stone-100 rounded h-1"></div>
+              <div class="bg-stone-100 rounded h-1 w-2/3"></div>
+            </div>
+          </div>
+          <div class="bg-white rounded p-1.5 shadow-sm flex items-start gap-1">
+            <div class="w-3 h-3 rounded bg-emerald-200 flex items-center justify-center text-[6px]">📈</div>
+            <div class="flex-1 space-y-0.5">
+              <div class="bg-stone-100 rounded h-1"></div>
+              <div class="bg-stone-100 rounded h-1 w-3/4"></div>
+            </div>
+          </div>
+          <div class="bg-white rounded p-1.5 shadow-sm flex items-start gap-1">
+            <div class="w-3 h-3 rounded bg-blue-200 flex items-center justify-center text-[6px]">💬</div>
+            <div class="flex-1 space-y-0.5">
+              <div class="bg-stone-100 rounded h-1"></div>
+              <div class="bg-stone-100 rounded h-1 w-1/2"></div>
+            </div>
+          </div>
+          <div class="bg-stone-900 rounded p-1.5 mt-2">
+            <div class="bg-stone-700 rounded h-1 mb-1"></div>
+            <div class="font-serif text-white text-[7px] italic">"Trim, don't exit."</div>
+          </div>
+        </div>
+        <div class="w-14 bg-white rounded shadow-sm p-1.5 space-y-1">
+          <div class="w-8 h-8 mx-auto rounded-full border-4 border-rose-200" style="border-right-color:#a93f5b;border-bottom-color:#a93f5b;"></div>
+          <div class="text-[7px] text-center font-bold">78%</div>
+        </div>
+      </div>
+
+      <div class="p-6">
+        <div class="flex items-center justify-between mb-3">
+          <div class="text-xs font-mono text-stone-400">DESIGN 02</div>
+          <div class="pill" style="background:#fef3c7;color:#92400e">Conversational</div>
+        </div>
+        <h2 class="font-serif text-2xl font-bold mb-2">Agent Council</h2>
+        <p class="text-sm text-stone-600 leading-relaxed mb-4">
+          The agents become characters. Mira, Sam, Nora, and Finn debate your tickers like a panel of experts.
+          Decisions emerge from a conversation you can join — ask follow-ups, request a re-vote, push back.
+        </p>
+
+        <div class="space-y-0 mt-4">
+          <div class="stat-row">
+            <span class="text-stone-500">Best for</span>
+            <span class="font-medium text-right">Thoughtful investors</span>
+          </div>
+          <div class="stat-row">
+            <span class="text-stone-500">Information density</span>
+            <span class="text-amber-500">★★★<span class="text-stone-300">★★</span></span>
+          </div>
+          <div class="stat-row">
+            <span class="text-stone-500">Learning curve</span>
+            <span class="text-amber-500">★<span class="text-stone-300">★★★★</span></span>
+          </div>
+          <div class="stat-row">
+            <span class="text-stone-500">Engagement style</span>
+            <span class="font-medium text-right">Reading & replying</span>
+          </div>
+        </div>
+
+        <button class="w-full mt-4 bg-stone-900 text-white rounded-xl py-2.5 text-sm font-semibold flex items-center justify-center gap-2">
+          Open mockup <i data-lucide="arrow-up-right" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </a>
+
+    <!-- CARD 3: PULSE -->
+    <a href="03-pulse.html" target="_blank" class="design-card block">
+      <div class="preview preview-3 p-3 flex gap-2 justify-center">
+        <div class="w-20 h-full bg-black rounded-2xl border border-white/10 p-2 space-y-1.5">
+          <div class="font-bold text-white text-[8px]">Hi Zach 👋</div>
+          <div class="rounded-lg p-1.5" style="background:linear-gradient(135deg,#ff3e8a,#b14aff)">
+            <div class="text-white text-[7px] uppercase">Verdict</div>
+            <div class="text-white font-bold text-sm leading-none">SELL</div>
+          </div>
+          <div class="bg-white/5 rounded p-1">
+            <div class="text-[6px] text-stone-400">AMD</div>
+            <div class="text-white text-[7px] font-bold">$449.59</div>
+          </div>
+          <div class="bg-white/5 rounded p-1">
+            <div class="text-[6px] text-stone-400">SPY</div>
+            <div class="text-white text-[7px] font-bold">$541.82</div>
+          </div>
+          <div class="bg-white/5 rounded p-1">
+            <div class="text-[6px] text-stone-400">RGTI</div>
+            <div class="text-white text-[7px] font-bold">$28.41</div>
+          </div>
+          <div class="bg-white/5 rounded p-1">
+            <div class="text-[6px] text-stone-400">PLTR</div>
+            <div class="text-white text-[7px] font-bold">$132.04</div>
+          </div>
+        </div>
+        <div class="w-20 h-full bg-black rounded-2xl border border-white/10 p-2 flex flex-col items-center justify-center text-center">
+          <div class="text-2xl mb-1">💬</div>
+          <div class="font-bold text-white text-[8px] leading-tight mb-1">Retail is euphoric.</div>
+          <div class="font-bold text-pink-400 text-[8px] leading-tight mb-2">Not a buy.</div>
+          <div class="font-bold text-pink-400 text-2xl">+340%</div>
+          <div class="text-[6px] text-stone-400">Reddit mentions</div>
+        </div>
+        <div class="w-20 h-full bg-black rounded-2xl border border-white/10 p-2 space-y-1">
+          <div class="text-[7px] text-white font-bold">Council vote</div>
+          <div class="rounded p-1 flex items-center gap-1" style="background:rgba(255,62,138,0.15)">
+            <span class="text-[8px]">👎</span>
+            <div class="text-pink-400 text-[6px] font-bold">SELL</div>
+          </div>
+          <div class="rounded p-1 flex items-center gap-1" style="background:rgba(255,62,138,0.15)">
+            <span class="text-[8px]">👎</span>
+            <div class="text-pink-400 text-[6px] font-bold">SELL</div>
+          </div>
+          <div class="rounded p-1 flex items-center gap-1" style="background:rgba(255,138,62,0.15)">
+            <span class="text-[8px]">🤷</span>
+            <div class="text-orange-400 text-[6px] font-bold">HOLD</div>
+          </div>
+          <div class="rounded p-1 flex items-center gap-1" style="background:rgba(196,255,62,0.15)">
+            <span class="text-[8px]">👍</span>
+            <div class="text-lime-400 text-[6px] font-bold">BUY</div>
+          </div>
+          <div class="rounded p-1 text-center" style="background:#c4ff3e">
+            <div class="text-black text-[6px] font-bold">Lock plan</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-6">
+        <div class="flex items-center justify-between mb-3">
+          <div class="text-xs font-mono text-stone-400">DESIGN 03</div>
+          <div class="pill" style="background:#fdf2f8;color:#9f1239">Mobile-first</div>
+        </div>
+        <h2 class="font-serif text-2xl font-bold mb-2">Pulse</h2>
+        <p class="text-sm text-stone-600 leading-relaxed mb-4">
+          Robinhood meets Instagram Stories. Each agent's analysis becomes a swipeable card with big stats, big type, and tiny effort.
+          Gamified voting, badges for streaks, designed for the gap between meetings.
+        </p>
+
+        <div class="space-y-0 mt-4">
+          <div class="stat-row">
+            <span class="text-stone-500">Best for</span>
+            <span class="font-medium text-right">Mobile-first retail</span>
+          </div>
+          <div class="stat-row">
+            <span class="text-stone-500">Information density</span>
+            <span class="text-amber-500">★★<span class="text-stone-300">★★★</span></span>
+          </div>
+          <div class="stat-row">
+            <span class="text-stone-500">Learning curve</span>
+            <span class="text-amber-500">★<span class="text-stone-300">★★★★</span></span>
+          </div>
+          <div class="stat-row">
+            <span class="text-stone-500">Engagement style</span>
+            <span class="font-medium text-right">Snacking & swiping</span>
+          </div>
+        </div>
+
+        <button class="w-full mt-4 bg-stone-900 text-white rounded-xl py-2.5 text-sm font-semibold flex items-center justify-center gap-2">
+          Open mockup <i data-lucide="arrow-up-right" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </a>
+
+  </div>
+</section>
+
+<!-- DESIGN RATIONALE -->
+<section class="max-w-5xl mx-auto px-6 py-16 border-t border-stone-200">
+  <h2 class="font-serif text-3xl font-bold text-center mb-3">How they differ</h2>
+  <p class="text-center text-stone-600 mb-12 max-w-2xl mx-auto">
+    Each direction makes a deliberate tradeoff. They share the same underlying data — but optimize for fundamentally different ways of working with it.
+  </p>
+
+  <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-stone-50">
+        <tr>
+          <th class="text-left p-4 font-semibold text-stone-500 text-xs uppercase tracking-wider">Axis</th>
+          <th class="text-left p-4 font-semibold text-xs uppercase tracking-wider">Command Bridge</th>
+          <th class="text-left p-4 font-semibold text-xs uppercase tracking-wider">Agent Council</th>
+          <th class="text-left p-4 font-semibold text-xs uppercase tracking-wider">Pulse</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="border-t border-stone-100">
+          <td class="p-4 text-stone-500">Primary metaphor</td>
+          <td class="p-4">Cockpit / terminal</td>
+          <td class="p-4">Discussion / panel</td>
+          <td class="p-4">Feed / stories</td>
+        </tr>
+        <tr class="border-t border-stone-100">
+          <td class="p-4 text-stone-500">How agents appear</td>
+          <td class="p-4">Conviction bars + debate log</td>
+          <td class="p-4">Named characters with chat bubbles</td>
+          <td class="p-4">Thumbs up/down with one-liners</td>
+        </tr>
+        <tr class="border-t border-stone-100">
+          <td class="p-4 text-stone-500">Decision presentation</td>
+          <td class="p-4">Synthesis card with entry/stop/target</td>
+          <td class="p-4">"The Council's Verdict" hero quote</td>
+          <td class="p-4">Big neon "SELL" + "Your move"</td>
+        </tr>
+        <tr class="border-t border-stone-100">
+          <td class="p-4 text-stone-500">How you ask follow-ups</td>
+          <td class="p-4">Right-rail chat input</td>
+          <td class="p-4">Reply in thread / @mention agent</td>
+          <td class="p-4">Tap reply on any story card</td>
+        </tr>
+        <tr class="border-t border-stone-100">
+          <td class="p-4 text-stone-500">Visual language</td>
+          <td class="p-4">Dark + teal + mono · data-dense</td>
+          <td class="p-4">Cream paper + serif headlines · editorial</td>
+          <td class="p-4">Black + neon · gradient-rich</td>
+        </tr>
+        <tr class="border-t border-stone-100">
+          <td class="p-4 text-stone-500">Engagement hook</td>
+          <td class="p-4">Always-on signals · "what changed?"</td>
+          <td class="p-4">Curiosity · "what did Finn say?"</td>
+          <td class="p-4">Streaks, badges, swipe rewards</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Recommendation -->
+  <div class="mt-12 bg-stone-900 text-white rounded-2xl p-8">
+    <div class="flex items-start gap-4">
+      <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0">
+        <i data-lucide="lightbulb" class="w-5 h-5"></i>
+      </div>
+      <div>
+        <div class="font-serif text-2xl font-bold mb-2">If you build one thing, I'd build Agent Council.</div>
+        <p class="text-stone-300 text-sm leading-relaxed mb-3">
+          Your current UI buries the most interesting feature — the fact that multiple <em>agents</em> reach a decision. Information density is fine, but the human-feeling element is what makes this product different from a Bloomberg subscription. Naming the agents and making them argue gives the product a personality competitors can't copy.
+        </p>
+        <p class="text-stone-300 text-sm leading-relaxed">
+          Command Bridge is the right second move once power users adopt. Pulse is a separate mobile companion app — don't try to make one UI do all three.
+        </p>
+      </div>
+    </div>
+  </div>
+
+</section>
+
+<footer class="border-t border-stone-200 py-8 text-center text-xs text-stone-500">
+  Open any mockup, scroll, hover, click around. They're interactive HTML — not screenshots.
+</footer>
+
+<script>
+  lucide.createIcons();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TradingAgents — Live Analysis</title>
+<style>
+  /* ═══════════════════════════════════════════════════════
+     TradingAgents Web GUI — Live Analysis Prototype
+     Dark Financial Theme · Data-Dense · Streaming
+     ═══════════════════════════════════════════════════════ */
+
+  :root {
+    --bg-root:       #0B0E14;
+    --bg-surface:    #131820;
+    --bg-elevated:   #1A2230;
+    --bg-input:      #0F141C;
+    --border-default:#212A36;
+    --border-active: #2A5A4A;
+    --text-primary:  #E8EDF4;
+    --text-secondary:#788896;
+    --text-muted:    #4A5568;
+    --accent-teal:   #00C897;
+    --accent-teal-hover:#00E0A8;
+    --signal-bullish:#26A69A;
+    --signal-bearish:#EF5350;
+    --signal-neutral:#FFA726;
+    --status-pending:#546E7A;
+    --status-active: #42A5F5;
+    --status-done:   #66BB6A;
+    --status-error:  #EF5350;
+    --chart-line:    #00C897;
+    --chart-grid:    #1A2230;
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg-root);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 1.5;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Sidebar ─────────────────────────────────────── */
+  .sidebar {
+    position: fixed; left:0; top:0; bottom:0; width:48px;
+    background: var(--bg-surface);
+    border-right: 1px solid var(--border-default);
+    display: flex; flex-direction: column; align-items: center;
+    padding: 12px 0;
+    z-index: 100;
+    transition: width 180ms ease;
+  }
+  .sidebar:hover { width: 220px; }
+  .sidebar:hover .nav-label { opacity:1; width:auto; }
+  .sidebar:hover .nav-item { justify-content: flex-start; padding: 0 16px; }
+  .nav-item {
+    width: 100%; height: 40px;
+    display: flex; align-items: center; justify-content: center;
+    gap: 12px; cursor: pointer; color: var(--text-secondary);
+    transition: color 120ms;
+    margin-bottom: 4px;
+  }
+  .nav-item:hover { color: var(--text-primary); }
+  .nav-item.active { color: var(--accent-teal); }
+  .nav-icon { font-size: 18px; width: 20px; text-align: center; flex-shrink: 0; }
+  .nav-label {
+    opacity: 0; width: 0; overflow: hidden; white-space: nowrap;
+    font-size: 13px; font-weight: 500;
+    transition: opacity 120ms 30ms;
+  }
+  .sidebar-spacer { flex: 1; }
+  .sidebar-brand {
+    font-size: 10px; color: var(--text-muted);
+    text-align: center; line-height: 1.3;
+  }
+
+  /* ── Main Layout ─────────────────────────────────── */
+  .main { margin-left: 48px; display: flex; flex-direction: column; height: 100vh; }
+
+  /* ── Status Bar ──────────────────────────────────── */
+  .status-bar {
+    height: 36px; min-height: 36px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border-default);
+    display: flex; align-items: center; gap: 24px;
+    padding: 0 20px; font-size: 12px; color: var(--text-secondary);
+    font-family: var(--font-mono);
+  }
+  .status-bar .ticker { color: var(--accent-teal); font-weight: 600; font-size: 14px; font-family: var(--font-sans); }
+  .status-bar .divider { color: var(--border-default); }
+  .status-bar .live-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent-teal); display: inline-block;
+    animation: pulse-dot 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  /* ── Panel Row ───────────────────────────────────── */
+  .panel-row {
+    flex: 1; display: flex; gap: 1px;
+    background: var(--border-default);
+    overflow: hidden;
+    min-height: 0;
+  }
+  .panel {
+    background: var(--bg-root);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  .panel-header {
+    height: 32px; min-height: 32px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border-default);
+    display: flex; align-items: center;
+    padding: 0 12px;
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--text-secondary);
+  }
+  .panel-body { flex:1; overflow-y: auto; overflow-x: hidden; }
+
+  /* Agents Panel */
+  .panel-agents { width: 280px; min-width: 220px; }
+  .agent-table { width: 100%; border-collapse: collapse; }
+  .agent-table th {
+    text-align: left; padding: 4px 12px; font-size: 10px;
+    font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--text-muted);
+    background: var(--bg-surface);
+    position: sticky; top: 0; z-index: 1;
+  }
+  .agent-table td {
+    padding: 3px 12px; font-size: 12px;
+    border-bottom: 1px solid var(--border-default);
+  }
+  .team-row td {
+    color: var(--text-muted); font-size: 10px;
+    font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.04em; padding-top: 8px;
+  }
+  .agent-name { color: var(--text-primary); }
+  .agent-status {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; font-family: var(--font-mono);
+  }
+  .status-dot {
+    width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+  }
+  .status-dot.pending  { background: var(--status-pending); }
+  .status-dot.active   { background: var(--status-active); animation: pulse-dot 0.8s ease-in-out infinite; }
+  .status-dot.done     { background: var(--status-done); }
+  .status-dot.error    { background: var(--status-error); }
+  .agent-row.active-row td { background: rgba(66,165,245,0.06); }
+  .agent-row.done-row  td { background: transparent; }
+  .agent-watch { color: var(--text-muted); font-size: 10px; font-family: var(--font-mono); }
+
+  /* Message Log Panel */
+  .panel-log { width: 380px; min-width: 260px; }
+  .msg-row {
+    padding: 3px 12px; font-size: 12px; font-family: var(--font-mono);
+    border-bottom: 1px solid rgba(33,42,54,0.5);
+    display: flex; gap: 8px; align-items: flex-start;
+  }
+  .msg-time   { color: var(--text-muted); white-space: nowrap; font-size: 10px; min-width: 48px; }
+  .msg-type   {
+    font-size: 10px; font-weight: 600; text-transform: uppercase;
+    padding: 1px 5px; border-radius: 3px; white-space: nowrap;
+    min-width: 42px; text-align: center; letter-spacing: 0.04em;
+  }
+  .msg-type.agent  { background: rgba(66,165,245,0.15); color: var(--status-active); }
+  .msg-type.tool   { background: rgba(255,167,38,0.15); color: var(--signal-neutral); }
+  .msg-type.data   { background: rgba(0,200,151,0.12); color: var(--accent-teal); }
+  .msg-type.system { background: rgba(120,136,150,0.12); color: var(--text-secondary); }
+  .msg-type.control{ background: rgba(239,83,80,0.12); color: var(--signal-bearish); }
+  .msg-content { color: var(--text-primary); word-break: break-word; line-height: 1.4; }
+
+  /* Report Panel */
+  .panel-report { flex: 1; min-width: 300px; }
+  .report-content { padding: 16px 20px; }
+  .report-content h1 { font-size: 20px; color: var(--text-primary); margin-bottom: 16px; }
+  .report-content h2 { font-size: 15px; color: var(--accent-teal); margin: 20px 0 8px; border-bottom: 1px solid var(--border-default); padding-bottom: 6px; }
+  .report-content h3 { font-size: 13px; color: var(--text-primary); margin: 14px 0 6px; }
+  .report-content p  { color: var(--text-secondary); margin-bottom: 8px; line-height: 1.6; }
+  .report-content strong { color: var(--text-primary); }
+  .report-content ul, .report-content ol { color: var(--text-secondary); margin: 8px 0; padding-left: 20px; }
+  .report-content li { margin-bottom: 4px; }
+  .report-content code { font-family: var(--font-mono); font-size: 11px; background: var(--bg-surface); padding: 2px 6px; border-radius: 3px; color: var(--accent-teal); }
+  .report-content .bullish { color: var(--signal-bullish); }
+  .report-content .bearish { color: var(--signal-bearish); }
+  .report-content .neutral  { color: var(--signal-neutral); }
+
+  /* ── Stats Footer ────────────────────────────────── */
+  .stats-footer {
+    height: 28px; min-height: 28px;
+    background: var(--bg-surface);
+    border-top: 1px solid var(--border-default);
+    display: flex; align-items: center; justify-content: center;
+    gap: 20px; font-size: 11px; font-family: var(--font-mono);
+    color: var(--text-secondary);
+  }
+  .stat-item { display: flex; align-items: center; gap: 4px; }
+  .stat-value { color: var(--text-primary); font-weight: 600; }
+  .stat-divider { color: var(--border-default); }
+
+  /* ── Stream Cursor Blink ─────────────────────────── */
+  .stream-cursor {
+    display: inline-block; width: 8px; height: 14px;
+    background: var(--accent-teal); margin-left: 2px;
+    animation: blink 0.7s step-end infinite;
+    vertical-align: text-bottom;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+  /* ── Simulated Run Controls ──────────────────────── */
+  .run-controls {
+    position: fixed; bottom: 40px; right: 20px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .run-btn {
+    padding: 6px 14px; border: 1px solid var(--border-default);
+    border-radius: 6px; background: var(--bg-surface);
+    color: var(--text-primary); cursor: pointer;
+    font-family: var(--font-sans); font-size: 12px;
+    transition: all 120ms;
+  }
+  .run-btn:hover { border-color: var(--accent-teal); color: var(--accent-teal); }
+  .run-btn.primary { background: var(--accent-teal); border-color: var(--accent-teal); color: #000; font-weight: 600; }
+  .run-btn.primary:hover { background: var(--accent-teal-hover); }
+
+  /* ── Scrollbar ───────────────────────────────────── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+  /* ── Responsive ──────────────────────────────────── */
+  @media (max-width: 1279px) {
+    .panel-agents { width: 220px; min-width: 180px; }
+    .panel-log { width: 280px; min-width: 200px; }
+  }
+  @media (max-width: 768px) {
+    .sidebar { width: 100%; height: 48px; bottom: auto; flex-direction: row; padding: 0; }
+    .sidebar:hover { width: 100%; }
+    .sidebar-spacer, .sidebar-brand, .nav-label { display: none; }
+    .nav-item { height: auto; margin-bottom: 0; flex: 1; }
+    .main { margin-left: 0; margin-top: 48px; }
+    .panel-row { flex-direction: column; }
+    .panel-agents, .panel-log, .panel-report { width: auto; min-width: auto; }
+    .panel-agents, .panel-log { max-height: 40%; }
+    .panel-report { flex:1; }
+    .status-bar { font-size: 10px; gap: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<nav class="sidebar">
+  <div class="nav-item active">
+    <span class="nav-icon">▶</span>
+    <span class="nav-label">New Analysis</span>
+  </div>
+  <div class="nav-item">
+    <span class="nav-icon">📋</span>
+    <span class="nav-label">History</span>
+  </div>
+  <div class="nav-item">
+    <span class="nav-icon">⚙</span>
+    <span class="nav-label">Settings</span>
+  </div>
+  <div class="sidebar-spacer"></div>
+  <div class="sidebar-brand">Trading<br>Agents</div>
+</nav>
+
+<!-- Main Content -->
+<div class="main">
+
+  <!-- Status Bar -->
+  <div class="status-bar" id="status-bar">
+    <span class="live-dot"></span>
+    <span class="ticker" id="ticker-display">AAPL</span>
+    <span class="divider">|</span>
+    <span id="date-display">2026-05-21</span>
+    <span class="divider">|</span>
+    <span>⏱ <span id="elapsed">00:00</span></span>
+    <span class="divider">|</span>
+    <span>Tokens: <span id="tokens-in">0</span>↑ <span id="tokens-out">0</span>↓</span>
+  </div>
+
+  <!-- Panel Row -->
+  <div class="panel-row">
+
+    <!-- Agents Panel -->
+    <div class="panel panel-agents">
+      <div class="panel-header">Agents</div>
+      <div class="panel-body">
+        <table class="agent-table" id="agent-table">
+          <thead><tr><th>Team</th><th>Agent</th><th>Status</th></tr></thead>
+          <tbody id="agent-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Message Log Panel -->
+    <div class="panel panel-log">
+      <div class="panel-header">Messages &amp; Tools</div>
+      <div class="panel-body" id="msg-log-body">
+        <div id="msg-log"></div>
+      </div>
+    </div>
+
+    <!-- Report Panel -->
+    <div class="panel panel-report">
+      <div class="panel-header" id="report-header">Current Report</div>
+      <div class="panel-body">
+        <div class="report-content" id="report-content">
+          <p style="color:var(--text-muted);font-style:italic;">Waiting for analysis stream...</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Stats Footer -->
+  <div class="stats-footer">
+    <span class="stat-item">Agents: <span class="stat-value" id="stat-agents">0/11</span></span>
+    <span class="stat-divider">|</span>
+    <span class="stat-item">LLM: <span class="stat-value" id="stat-llm">0</span></span>
+    <span class="stat-divider">|</span>
+    <span class="stat-item">Tools: <span class="stat-value" id="stat-tools">0</span></span>
+    <span class="stat-divider">|</span>
+    <span class="stat-item">Reports: <span class="stat-value" id="stat-reports">0/7</span></span>
+  </div>
+
+</div>
+
+<!-- Run Controls (for demo) -->
+<div class="run-controls">
+  <button class="run-btn primary" onclick="startSimulation()" id="btn-start">▶ Run Simulation</button>
+  <button class="run-btn" onclick="resetSimulation()">↺ Reset</button>
+</div>
+
+<script>
+  /* ═══════════════════════════════════════════════════════
+     Simulation Engine — mimics TradingAgents streaming
+     ═══════════════════════════════════════════════════════ */
+
+  const AGENT_DEFS = [
+    {team:"Analyst Team", agents:[
+      {name:"Market Analyst", key:"market"},
+      {name:"Sentiment Analyst", key:"sentiment"},
+      {name:"News Analyst", key:"news"},
+      {name:"Fundamentals Analyst", key:"fundamentals"},
+    ]},
+    {team:"Research Team", agents:[
+      {name:"Bull Researcher"},
+      {name:"Bear Researcher"},
+      {name:"Research Manager"},
+    ]},
+    {team:"Trading Team", agents:[
+      {name:"Trader"},
+    ]},
+    {team:"Risk Management", agents:[
+      {name:"Aggressive Analyst"},
+      {name:"Neutral Analyst"},
+      {name:"Conservative Analyst"},
+    ]},
+    {team:"Portfolio Management", agents:[
+      {name:"Portfolio Manager"},
+    ]}
+  ];
+
+  const TOTAL_AGENTS = AGENT_DEFS.reduce((s,t) => s + t.agents.length, 0);
+
+  let agentStatus = {};
+  let stats = { agents:0, llm:0, tools:0, reports:0, tokensIn:0, tokensOut:0 };
+  let elapsed = 0;
+  let timerInterval = null;
+  let simRunning = false;
+
+  function buildAgentTable() {
+    const tbody = document.getElementById('agent-tbody');
+    tbody.innerHTML = '';
+    AGENT_DEFS.forEach(team => {
+      // Team header row
+      const tr = document.createElement('tr');
+      tr.className = 'team-row';
+      tr.innerHTML = `<td colspan="3">${team.team}</td>`;
+      tbody.appendChild(tr);
+      // Agent rows
+      team.agents.forEach((agent, i) => {
+        const name = agent.name;
+        const status = agentStatus[name] || 'pending';
+        const row = document.createElement('tr');
+        row.className = 'agent-row';
+        if (status === 'in_progress') row.classList.add('active-row');
+        if (status === 'completed') row.classList.add('done-row');
+        row.setAttribute('data-agent', name);
+        const statusDot = `<span class="status-dot ${status === 'in_progress' ? 'active' : status === 'completed' ? 'done' : status === 'error' ? 'error' : 'pending'}"></span>`;
+        row.innerHTML = `
+          <td></td>
+          <td class="agent-name">${name}</td>
+          <td class="agent-status">${statusDot} <span class="status-label">${status_display(status)}</span></td>
+        `;
+        tbody.appendChild(row);
+      });
+    });
+  }
+
+  function status_display(s) {
+    const map = {pending:'pending', in_progress:'active', completed:'done', error:'error'};
+    return map[s] || s;
+  }
+
+  function updateAgentRow(name, status) {
+    agentStatus[name] = status;
+    const row = document.querySelector(`[data-agent="${CSS.escape(name)}"]`);
+    if (!row) return;
+    row.className = 'agent-row';
+    if (status === 'in_progress') row.classList.add('active-row');
+    if (status === 'completed') row.classList.add('done-row');
+    const statusDot = `<span class="status-dot ${status === 'in_progress' ? 'active' : status === 'completed' ? 'done' : status === 'error' ? 'error' : 'pending'}"></span>`;
+    row.querySelector('.agent-status').innerHTML = `${statusDot} <span class="status-label">${status_display(status)}</span>`;
+  }
+
+  function updateStats() {
+    document.getElementById('stat-agents').textContent = `${stats.agents}/${TOTAL_AGENTS}`;
+    document.getElementById('stat-llm').textContent = stats.llm;
+    document.getElementById('stat-tools').textContent = stats.tools;
+    document.getElementById('stat-reports').textContent = `${stats.reports}/7`;
+    document.getElementById('tokens-in').textContent = formatNum(stats.tokensIn);
+    document.getElementById('tokens-out').textContent = formatNum(stats.tokensOut);
+  }
+
+  function formatNum(n) {
+    if (n >= 1000) return (n/1000).toFixed(1)+'k';
+    return String(n);
+  }
+
+  function addMessage(type, content) {
+    const log = document.getElementById('msg-log');
+    const now = new Date();
+    const time = now.toTimeString().slice(0,8);
+    const row = document.createElement('div');
+    row.className = 'msg-row';
+    row.innerHTML = `<span class="msg-time">${time}</span><span class="msg-type ${type}">${type}</span><span class="msg-content">${content}</span>`;
+    log.appendChild(row);
+    const body = document.getElementById('msg-log-body');
+    body.scrollTop = body.scrollHeight;
+  }
+
+  function updateReport(markdown) {
+    const el = document.getElementById('report-content');
+    el.innerHTML = renderMarkdownSimple(markdown);
+    const body = el.parentElement;
+    body.scrollTop = body.scrollHeight;
+  }
+
+  function renderMarkdownSimple(md) {
+    // Minimal markdown → HTML for the prototype
+    let html = md;
+    html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+    html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+    html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+    html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
+    html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+    // Colorize signal words
+    html = html.replace(/\b(BUY|Bullish|bullish|buy)\b/g, '<span class="bullish">$1</span>');
+    html = html.replace(/\b(SELL|Bearish|bearish|sell)\b/g, '<span class="bearish">$1</span>');
+    html = html.replace(/\b(HOLD|Neutral|neutral|hold)\b/g, '<span class="neutral">$1</span>');
+    return html;
+  }
+
+  function updateElapsed() {
+    const mins = Math.floor(elapsed / 60);
+    const secs = elapsed % 60;
+    document.getElementById('elapsed').textContent =
+      String(mins).padStart(2,'0') + ':' + String(secs).padStart(2,'0');
+  }
+
+  /* ── Simulation ──────────────────────────────────── */
+  const TICKER = 'AAPL';
+  const DATE = '2026-05-21';
+
+  // Ordered list of agent status transitions
+  const AGENT_SEQUENCE = [
+    // Phase 1: Analysts (one at a time, each includes report streaming)
+    {agent:'Market Analyst', delay:0, duration:3000},
+    {agent:'Sentiment Analyst', delay:3200, duration:2800},
+    {agent:'News Analyst', delay:6200, duration:2500},
+    {agent:'Fundamentals Analyst', delay:8900, duration:3200},
+    // Phase 2: Research Team debate
+    {agent:'Bull Researcher', delay:12300, duration:2800},
+    {agent:'Bear Researcher', delay:14000, duration:2400},
+    {agent:'Research Manager', delay:17500, duration:2000},
+    // Phase 3: Trading
+    {agent:'Trader', delay:19600, duration:2500},
+    // Phase 4: Risk Management
+    {agent:'Aggressive Analyst', delay:22300, duration:2200},
+    {agent:'Neutral Analyst', delay:24100, duration:2200},
+    {agent:'Conservative Analyst', delay:25800, duration:2200},
+    // Phase 5: Portfolio Manager
+    {agent:'Portfolio Manager', delay:28200, duration:3000},
+  ];
+
+  let timeline = [];
+
+  const REPORT_SECTIONS = {
+    'Market Analyst': `### Market Analysis
+
+Analysis for **AAPL** (Apple Inc.) as of May 21, 2026. The stock is trading at **$198.45**, showing strong momentum in the medium term.
+
+**Technical Indicators:**
+- **50-day SMA (192.30):** Price well above, indicating a robust medium-term uptrend
+- **200-day SMA (186.75):** Price above 200 SMA — <span class="bullish">bullish</span> long-term signal
+- **RSI (58.3):** In the healthy power zone, plenty of room before overbought
+- **MACD (2.14):** Positive crossover confirmed, <span class="bullish">bullish</span> momentum
+
+**Key Levels:**
+- <span class="bullish">Resistance:</span> $205.00 (all-time high area)
+- <span class="bullish">Support:</span> $192.30 (50 SMA)`,
+
+    'Sentiment Analyst': `### Social Sentiment
+
+Social media sentiment for AAPL has shifted notably <span class="bullish">bullish</span> over the past week:
+
+- **Reddit r/WallStreetBets:** Mention volume up 34% WoW, 72% positive
+- **StockTwits:** Bullish message ratio at 68%, above the 60% threshold
+- **Twitter/X:** Positive sentiment score of 0.72 on a -1 to +1 scale
+
+The Services revenue growth narrative is dominating retail discussion, with AI strategy announcements driving excitement.`,
+
+    'News Analyst': `### News Analysis
+
+Recent headlines for AAPL:
+
+- **"Apple's AI Strategy Gains Momentum"** — Bloomberg, May 20
+- **"Services Revenue Hits New Record"** — WSJ, May 19
+- **"iPhone Demand Stabilizes in China"** — Reuters, May 18
+- **"Vision Pro 2 Development Confirmed"** — The Verge, May 17
+
+Overall news sentiment: <span class="bullish">Positive</span>. The AI narrative is the dominant theme, with Services providing a strong earnings foundation.`,
+
+    'Fundamentals Analyst': `### Fundamentals Analysis
+
+**Key Metrics (TTM):**
+- **P/E Ratio:** 28.4x (vs 5yr avg 26.2x — slight premium)
+- **Revenue Growth:** +8.2% YoY
+- **EPS Growth:** +12.1% YoY
+- **Gross Margin:** 45.8% (expanding)
+- **FCF Yield:** 3.4%
+- **Debt/Equity:** 1.42 (manageable)
+
+Services segment now constitutes 28% of revenue with 72% gross margin — this mix shift is structurally <span class="bullish">bullish</span> for margins.`,
+
+    'Research Manager': `### Research Team Decision
+
+After reviewing the bull and bear cases, the Research Manager concludes:
+
+**Bull Case (favored):** Strong Services growth, AI product cycle imminent, robust buyback program ($90B authorized), and technical breakout pattern.
+
+**Bear Case:** China exposure risk, premium valuation, smartphone market saturation.
+
+**Verdict:** <span class="bullish">Favor LONG position</span> with 70% conviction. The bull case outweighs risks given the Services momentum and AI catalysts.`,
+
+    'Trader': `### Trading Team Plan
+
+**Recommended Position:**
+- **Direction:** <span class="bullish">LONG</span>
+- **Entry:** $198.45 (current market)
+- **Stop Loss:** $190.00 (-4.3%, below 50 SMA)
+- **Take Profit:** $208.00 (+4.8%, near ATH)
+- **Position Size:** 3% of portfolio
+- **Risk/Reward:** 1:1.12`,
+
+    'Portfolio Manager': `### Portfolio Manager Decision
+
+**Final Decision:** <span class="bullish">BUY</span>
+
+Consolidating all team inputs:
+
+| Team | Signal | Weight |
+|------|--------|--------|
+| Analyst Team | <span class="bullish">Bullish</span> | 30% |
+| Research Team | <span class="bullish">Bullish</span> | 25% |
+| Trading Team | <span class="bullish">LONG</span> | 20% |
+| Risk Management | <span class="neutral">Neutral-Bullish</span> | 25% |
+
+**Aggregate Score:** +0.72 (scale: -1 to +1)
+
+**Action:** Initiate long position in AAPL at $198.45 with 3% allocation and stop at $190.00. The convergence of technical breakout, improving fundamentals, and positive sentiment supports a <span class="bullish">BUY</span> decision at current levels.`
+  };
+
+  function startSimulation() {
+    if (simRunning) return;
+    document.getElementById('btn-start').disabled = true;
+    document.getElementById('btn-start').textContent = '◉ Running...';
+    document.getElementById('report-header').textContent = 'Current Report — Streaming';
+
+    // Reset state (silent — doesn't touch simRunning)
+    resetSimulation(true);
+    simRunning = true;
+
+    // Build timeline
+    timeline = [];
+    AGENT_SEQUENCE.forEach(s => {
+      timeline.push({time: s.delay, action:'start', agent:s.agent});
+      timeline.push({time: s.delay + s.duration, action:'complete', agent:s.agent});
+      // Add mid-point report updates
+      if (REPORT_SECTIONS[s.agent]) {
+        const mid = s.delay + Math.floor(s.duration * 0.6);
+        timeline.push({time: mid, action:'report', agent:s.agent});
+      }
+    });
+    // Final decision at end
+    const lastAgent = AGENT_SEQUENCE[AGENT_SEQUENCE.length-1];
+    const finalTime = lastAgent.delay + lastAgent.duration + 500;
+    timeline.push({time: finalTime, action:'final'});
+    timeline.sort((a,b) => a.time - b.time);
+
+    // Random messages during analysis
+    const msgTypes = ['agent','tool','data'];
+    const fakeMsgs = [
+      ['agent', 'Analyzing AAPL market data from multiple sources...'],
+      ['tool', 'get_stock_data(symbol=AAPL, start=2026-01-01)'],
+      ['data', 'Received 98 trading days of price data'],
+      ['tool', 'get_indicators(symbol=AAPL)'],
+      ['data', 'Computed SMA 50/200, RSI, MACD, Bollinger Bands'],
+      ['agent', 'Cross-referencing technical signals with fundamentals...'],
+      ['tool', 'get_news(query=AAPL, limit=20)'],
+      ['data', 'Retrieved 20 recent news articles'],
+      ['tool', 'get_fundamentals(symbol=AAPL)'],
+      ['data', 'Loaded fundamental metrics: P/E, EPS, margins, FCF'],
+      ['agent', 'Evaluating bull vs bear debate arguments...'],
+      ['agent', 'Computing position sizing and risk parameters...'],
+      ['tool', 'get_global_news(queries=["Federal Reserve", "S&P 500"])'],
+      ['data', 'Retrieved 10 macro news articles'],
+      ['agent', 'Generating final trade recommendation...'],
+    ];
+
+    // Start timer
+    const startTs = Date.now();
+    timerInterval = setInterval(() => {
+      elapsed = Math.floor((Date.now() - startTs) / 1000);
+      updateElapsed();
+    }, 250);
+
+    // Process timeline
+    let msgIdx = 0;
+    const simStart = Date.now();
+
+    function processTick() {
+      const now = Date.now() - simStart;
+      // Process all due timeline events
+      while (timeline.length > 0 && timeline[0].time <= now) {
+        const evt = timeline.shift();
+        if (evt.action === 'start') {
+          updateAgentRow(evt.agent, 'in_progress');
+          addMessage('system', `Agent "${evt.agent}" started`);
+          stats.llm += 1;
+        } else if (evt.action === 'complete') {
+          updateAgentRow(evt.agent, 'completed');
+          stats.agents += 1;
+          addMessage('system', `Agent "${evt.agent}" completed`);
+        } else if (evt.action === 'report') {
+          const report = REPORT_SECTIONS[evt.agent];
+          if (report) {
+            updateReport(report);
+            stats.reports += 1;
+          }
+        } else if (evt.action === 'final') {
+          // All done
+          updateReport(REPORT_SECTIONS['Portfolio Manager']);
+          document.getElementById('report-header').textContent = 'Current Report — Complete';
+          addMessage('system', 'Analysis complete. Final decision: BUY');
+          stats.agents = TOTAL_AGENTS;
+          document.getElementById('btn-start').disabled = false;
+          document.getElementById('btn-start').textContent = '▶ Run Simulation';
+          clearInterval(timerInterval);
+          simRunning = false;
+          updateStats();
+          return;
+        }
+        updateStats();
+      }
+
+      // Inject fake messages periodically
+      if (msgIdx < fakeMsgs.length && Math.random() < 0.15) {
+        const m = fakeMsgs[msgIdx];
+        addMessage(m[0], m[1]);
+        msgIdx++;
+        if (m[0] === 'tool') stats.tools += 1;
+        if (m[0] === 'agent') { stats.tokensIn += Math.floor(Math.random()*3000+500); stats.tokensOut += Math.floor(Math.random()*1500+200); }
+      }
+
+      if (simRunning) requestAnimationFrame(processTick);
+    }
+
+    processTick();
+  }
+
+  function resetSimulation(silent) {
+    simRunning = false;
+    clearInterval(timerInterval);
+    timeline = [];
+    elapsed = 0;
+    agentStatus = {};
+    stats = { agents:0, llm:0, tools:0, reports:0, tokensIn:0, tokensOut:0 };
+
+    document.getElementById('elapsed').textContent = '00:00';
+    document.getElementById('ticker-display').textContent = TICKER;
+    document.getElementById('date-display').textContent = DATE;
+    document.getElementById('btn-start').disabled = false;
+    document.getElementById('btn-start').textContent = '▶ Run Simulation';
+    document.getElementById('report-header').textContent = 'Current Report';
+    document.getElementById('report-content').innerHTML = '<p style="color:var(--text-muted);font-style:italic;">Waiting for analysis stream...</p>';
+    document.getElementById('msg-log').innerHTML = '';
+
+    buildAgentTable();
+    updateStats();
+
+    if (!silent) {
+      addMessage('system', `Ticker: ${TICKER}`);
+      addMessage('system', `Date: ${DATE}`);
+      addMessage('system', 'Analysts: Market, Sentiment, News, Fundamentals');
+    }
+  }
+
+  // Initialize on load
+  resetSimulation();
+</script>
+</body>
+</html>

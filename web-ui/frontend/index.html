@@ -1,0 +1,1485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TradingAgents — AI-Powered Stock Analysis</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230B0E14'/><text x='16' y='22' font-size='18' text-anchor='middle' fill='%2300C897' font-family='monospace'>TA</text></svg>">
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.5/dist/cdn.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+<style>
+  /* ═══════════════════════════════════════════════════════
+     TradingAgents Web GUI
+     Dark Financial Theme · Data-Dense · Real-time SSE
+     ═══════════════════════════════════════════════════════ */
+
+  :root {
+    --bg-root:       #0B0E14;
+    --bg-surface:    #131820;
+    --bg-elevated:   #1A2230;
+    --bg-input:      #0F141C;
+    --border-default:#212A36;
+    --border-active: #2A5A4A;
+    --text-primary:  #E8EDF4;
+    --text-secondary:#788896;
+    --text-muted:    #4A5568;
+    --accent-teal:   #00C897;
+    --accent-teal-hover:#00E0A8;
+    --signal-bullish:#26A69A;
+    --signal-bearish:#EF5350;
+    --signal-neutral:#FFA726;
+    --status-pending:#546E7A;
+    --status-active: #42A5F5;
+    --status-done:   #66BB6A;
+    --status-error:  #EF5350;
+    --chart-line:    #00C897;
+    --chart-grid:    #1A2230;
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg-root);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 1.5;
+    height: 100vh;
+    display: flex;
+    overflow: hidden;
+  }
+
+  /* ══ Sidebar ════════════════════════════════════════ */
+  .sidebar {
+    width: 48px; min-width: 48px;
+    background: var(--bg-surface);
+    border-right: 1px solid var(--border-default);
+    display: flex; flex-direction: column; align-items: center;
+    padding: 12px 0;
+    z-index: 100;
+    transition: width 180ms ease;
+  }
+  .sidebar:hover { width: 220px; }
+  .sidebar:hover .nav-label { opacity:1; width:auto; overflow:visible; }
+  .sidebar:hover .nav-item { justify-content: flex-start; padding: 0 16px; }
+  .nav-item {
+    width: 100%; height: 40px;
+    display: flex; align-items: center; justify-content: center;
+    gap: 12px; cursor: pointer; color: var(--text-secondary);
+    transition: color 120ms; margin-bottom: 4px;
+    position: relative;
+  }
+  .nav-item:hover { color: var(--text-primary); }
+  .nav-item.active { color: var(--accent-teal); }
+  .nav-item.active::before {
+    content: ''; position: absolute; left: 0; top: 8px; bottom: 8px;
+    width: 2px; background: var(--accent-teal); border-radius: 0 2px 2px 0;
+  }
+  .nav-icon { font-size: 18px; width: 20px; text-align: center; flex-shrink: 0; }
+  .nav-label {
+    opacity: 0; width: 0; overflow: hidden; white-space: nowrap;
+    font-size: 13px; font-weight: 500;
+    transition: opacity 120ms 30ms, width 120ms 30ms;
+  }
+  .sidebar-spacer { flex: 1; }
+  .sidebar-brand {
+    font-size: 10px; color: var(--text-muted);
+    text-align: center; line-height: 1.3;
+  }
+
+  /* ══ Main ════════════════════════════════════════════ */
+  .main {
+    flex: 1; display: flex; flex-direction: column;
+    height: 100vh; overflow: hidden; min-width: 0;
+  }
+
+  /* ══ Screens ═════════════════════════════════════════ */
+  .screen { display: none; flex-direction: column; height: 100%; overflow: hidden; }
+  .screen.active { display: flex; }
+
+  /* ── Input Form Screen ─────────────────────────────── */
+  .form-screen { overflow-y: auto; padding: 32px; align-items: center; }
+  .form-card {
+    background: var(--bg-surface); border: 1px solid var(--border-default);
+    border-radius: 12px; padding: 32px; width: 100%; max-width: 560px;
+  }
+  .form-card h1 { font-size: 20px; margin-bottom: 4px; }
+  .form-card .subtitle { color: var(--text-secondary); font-size: 12px; margin-bottom: 24px; }
+  .form-group { margin-bottom: 16px; }
+  .form-label {
+    display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary);
+    text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;
+  }
+  .form-input {
+    width: 100%; padding: 10px 12px;
+    background: var(--bg-input); border: 1px solid var(--border-default);
+    border-radius: 8px; color: var(--text-primary); font-size: 14px;
+    font-family: var(--font-sans); transition: border-color 150ms;
+    outline: none;
+  }
+  .form-input:focus { border-color: var(--border-active); }
+  .form-input::placeholder { color: var(--text-muted); }
+  .form-row { display: flex; gap: 12px; }
+  .form-row > .form-group { flex: 1; }
+  select.form-input {
+    cursor: pointer; appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='%23788896'%3E%3Cpath d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center;
+    padding-right: 36px;
+  }
+
+  /* Analyst Checkboxes */
+  .checkbox-group { display: flex; flex-wrap: wrap; gap: 10px; }
+  .checkbox-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 14px; background: var(--bg-input);
+    border: 1px solid var(--border-default); border-radius: 8px;
+    cursor: pointer; transition: all 150ms; font-size: 13px;
+    user-select: none;
+  }
+  .checkbox-item:hover { border-color: var(--border-active); }
+  .checkbox-item.checked { border-color: var(--accent-teal); background: rgba(0,200,151,0.08); }
+  .checkbox-item input[type=checkbox] { accent-color: var(--accent-teal); }
+
+  /* Research Depth Slider */
+  .slider-group { display: flex; align-items: center; gap: 12px; }
+  .slider-group input[type=range] {
+    flex: 1; -webkit-appearance: none; appearance: none;
+    height: 6px; background: var(--border-default); border-radius: 3px;
+    outline: none;
+  }
+  .slider-group input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%;
+    background: var(--accent-teal); cursor: pointer;
+  }
+  .slider-value {
+    color: var(--accent-teal); font-weight: 600; font-family: var(--font-mono);
+    font-size: 14px; min-width: 80px; text-align: center;
+  }
+
+  /* Submit Button */
+  .btn-submit {
+    width: 100%; padding: 12px; border: none; border-radius: 8px;
+    background: var(--accent-teal); color: #000; font-size: 14px;
+    font-weight: 600; cursor: pointer; transition: all 150ms;
+    font-family: var(--font-sans);
+  }
+  .btn-submit:hover { background: var(--accent-teal-hover); }
+  .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-submit.loading {
+    background: var(--bg-input); color: var(--text-secondary);
+    pointer-events: none;
+  }
+
+  /* ── Live Analysis Screen ──────────────────────────── */
+  .live-screen { display: none; }
+  .live-screen.active { display: flex; }
+
+  .status-bar {
+    height: 36px; min-height: 36px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border-default);
+    display: flex; align-items: center; gap: 24px;
+    padding: 0 20px; font-size: 12px; color: var(--text-secondary);
+    font-family: var(--font-mono);
+  }
+  .status-bar .ticker-name { color: var(--accent-teal); font-weight: 600; font-size: 14px; font-family: var(--font-sans); }
+  .status-bar .divider { color: var(--border-default); }
+  .live-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent-teal); display: inline-block;
+    animation: pulse-dot 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  .panel-row {
+    flex: 1; display: flex; gap: 1px;
+    background: var(--border-default);
+    overflow: hidden; min-height: 0;
+  }
+  .panel {
+    background: var(--bg-root);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  .panel-header {
+    height: 32px; min-height: 32px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border-default);
+    display: flex; align-items: center;
+    padding: 0 12px;
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--text-secondary);
+  }
+  .panel-body { flex:1; overflow-y: auto; overflow-x: hidden; }
+
+  /* Agents Panel */
+  .panel-agents { width: 280px; min-width: 220px; }
+  .agent-table { width: 100%; border-collapse: collapse; }
+  .agent-table th {
+    text-align: left; padding: 4px 12px; font-size: 10px;
+    font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--text-muted);
+    background: var(--bg-surface);
+    position: sticky; top: 0; z-index: 1;
+  }
+  .agent-table td {
+    padding: 3px 12px; font-size: 12px;
+    border-bottom: 1px solid var(--border-default);
+  }
+  .team-row td {
+    color: var(--text-muted); font-size: 10px;
+    font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.04em; padding-top: 8px;
+  }
+  .agent-name { color: var(--text-primary); }
+  .agent-status-meta {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; font-family: var(--font-mono);
+  }
+  .status-dot {
+    width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+  }
+  .status-dot.pending  { background: var(--status-pending); }
+  .status-dot.active   { background: var(--status-active); animation: pulse-dot 0.8s ease-in-out infinite; }
+  .status-dot.done     { background: var(--status-done); }
+  .status-dot.error    { background: var(--status-error); }
+  .agent-row.active-row td { background: rgba(66,165,245,0.06); }
+
+  /* Message Log */
+  .panel-log { width: 380px; min-width: 260px; }
+  .msg-row {
+    padding: 3px 12px; font-size: 12px; font-family: var(--font-mono);
+    border-bottom: 1px solid rgba(33,42,54,0.5);
+    display: flex; gap: 8px; align-items: flex-start;
+  }
+  .msg-time   { color: var(--text-muted); white-space: nowrap; font-size: 10px; min-width: 48px; }
+  .msg-badge  {
+    font-size: 10px; font-weight: 600; text-transform: uppercase;
+    padding: 1px 5px; border-radius: 3px; white-space: nowrap;
+    min-width: 42px; text-align: center; letter-spacing: 0.04em;
+  }
+  .msg-badge.agent  { background: rgba(66,165,245,0.15); color: var(--status-active); }
+  .msg-badge.tool   { background: rgba(255,167,38,0.15); color: var(--signal-neutral); }
+  .msg-badge.data   { background: rgba(0,200,151,0.12); color: var(--accent-teal); }
+  .msg-badge.system { background: rgba(120,136,150,0.12); color: var(--text-secondary); }
+  .msg-badge.report { background: rgba(102,187,106,0.15); color: var(--status-done); }
+  .msg-badge.debate { background: rgba(255,167,38,0.15); color: var(--signal-neutral); }
+  .msg-badge.decision { background: rgba(239,83,80,0.15); color: var(--signal-bearish); }
+  .msg-badge.error  { background: rgba(239,83,80,0.2); color: var(--signal-bearish); }
+  .msg-body { color: var(--text-primary); word-break: break-word; line-height: 1.4; }
+
+  /* Report Panel */
+  .panel-report { flex: 1; min-width: 300px; }
+  .report-inner { padding: 16px 20px; }
+  .report-inner h1 { font-size: 20px; color: var(--text-primary); margin-bottom: 16px; }
+  .report-inner h2 { font-size: 15px; color: var(--accent-teal); margin: 20px 0 8px; border-bottom: 1px solid var(--border-default); padding-bottom: 6px; }
+  .report-inner h3 { font-size: 13px; color: var(--text-primary); margin: 14px 0 6px; }
+  .report-inner p  { color: var(--text-secondary); margin-bottom: 8px; line-height: 1.6; }
+  .report-inner strong { color: var(--text-primary); }
+  .report-inner ul, .report-inner ol { color: var(--text-secondary); margin: 8px 0; padding-left: 20px; }
+  .report-inner li { margin-bottom: 4px; }
+  .report-inner code { font-family: var(--font-mono); font-size: 11px; background: var(--bg-surface); padding: 2px 6px; border-radius: 3px; color: var(--accent-teal); }
+  .report-inner table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+  .report-inner th, .report-inner td { padding: 6px 10px; border: 1px solid var(--border-default); font-size: 12px; text-align: left; }
+  .report-inner th { background: var(--bg-surface); color: var(--text-secondary); font-weight: 600; }
+  .report-inner .bullish { color: var(--signal-bullish); }
+  .report-inner .bearish { color: var(--signal-bearish); }
+  .report-inner .neutral  { color: var(--signal-neutral); }
+
+  /* Stats Footer */
+  .stats-footer {
+    height: 28px; min-height: 28px;
+    background: var(--bg-surface);
+    border-top: 1px solid var(--border-default);
+    display: flex; align-items: center; justify-content: center;
+    gap: 20px; font-size: 11px; font-family: var(--font-mono);
+    color: var(--text-secondary);
+  }
+  .stat-item { display: flex; align-items: center; gap: 4px; }
+  .stat-value { color: var(--text-primary); font-weight: 600; }
+  .stat-divider { color: var(--border-default); }
+
+  /* ── Report View Screen ────────────────────────────── */
+  .report-screen { display: none; }
+  .report-screen.active { display: flex; }
+
+  .report-topbar {
+    height: 48px; min-height: 48px;
+    background: var(--bg-surface); border-bottom: 1px solid var(--border-default);
+    display: flex; align-items: center; gap: 16px; padding: 0 20px;
+  }
+  .report-topbar .back-btn {
+    color: var(--text-secondary); cursor: pointer; font-size: 14px;
+    padding: 4px 8px; border-radius: 6px; transition: color 120ms;
+  }
+  .report-topbar .back-btn:hover { color: var(--text-primary); }
+  .decision-badge {
+    padding: 4px 14px; border-radius: 20px; font-size: 12px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .decision-badge.buy  { background: rgba(38,166,154,0.18); color: var(--signal-bullish); }
+  .decision-badge.sell { background: rgba(239,83,80,0.18); color: var(--signal-bearish); }
+  .decision-badge.hold { background: rgba(255,167,38,0.18); color: var(--signal-neutral); }
+
+  .btn-download {
+    margin-left: auto; padding: 6px 16px;
+    background: var(--bg-input); border: 1px solid var(--border-default);
+    border-radius: 8px; color: var(--text-secondary); cursor: pointer;
+    font-size: 12px; font-family: var(--font-sans); transition: all 120ms;
+  }
+  .btn-download:hover { border-color: var(--accent-teal); color: var(--accent-teal); }
+
+  .report-body-area {
+    flex: 1; display: flex; overflow: hidden; min-height: 0;
+  }
+  .report-nav {
+    width: 200px; min-width: 160px; padding: 16px 12px;
+    border-right: 1px solid var(--border-default); overflow-y: auto;
+    background: var(--bg-surface);
+  }
+  .report-nav-item {
+    display: block; padding: 6px 10px; font-size: 12px;
+    color: var(--text-secondary); cursor: pointer; border-radius: 6px;
+    border-left: 2px solid transparent; transition: all 120ms;
+    margin-bottom: 2px;
+  }
+  .report-nav-item:hover { color: var(--text-primary); background: rgba(255,255,255,0.03); }
+  .report-nav-item.active { color: var(--accent-teal); border-left-color: var(--accent-teal); }
+  .report-main { flex: 1; overflow-y: auto; padding: 24px 32px; }
+
+  /* Section collapsing */
+  .section-toggle { cursor: pointer; user-select: none; }
+  .section-toggle:hover { color: var(--text-primary); }
+  .section-body { overflow: hidden; transition: max-height 250ms ease; }
+  .section-body.collapsed { max-height: 0 !important; }
+
+  /* ── History Screen ────────────────────────────────── */
+  .history-screen { display: none; }
+  .history-screen.active { display: flex; }
+
+  .history-topbar {
+    padding: 16px 20px; background: var(--bg-surface);
+    border-bottom: 1px solid var(--border-default);
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .search-input {
+    padding: 8px 14px; background: var(--bg-input); border: 1px solid var(--border-default);
+    border-radius: 8px; color: var(--text-primary); width: 220px;
+    font-size: 13px; font-family: var(--font-sans); outline: none;
+  }
+  .search-input:focus { border-color: var(--border-active); }
+  .search-input::placeholder { color: var(--text-muted); }
+
+  .filter-chip {
+    padding: 6px 14px; border: 1px solid var(--border-default);
+    border-radius: 20px; font-size: 12px; font-weight: 600;
+    cursor: pointer; color: var(--text-secondary);
+    transition: all 120ms;
+  }
+  .filter-chip:hover { border-color: var(--text-muted); color: var(--text-primary); }
+  .filter-chip.active { background: rgba(0,200,151,0.12); border-color: var(--accent-teal); color: var(--accent-teal); }
+
+  .history-table {
+    width: 100%; border-collapse: collapse;
+  }
+  .history-table th {
+    text-align: left; padding: 8px 16px; font-size: 10px;
+    font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--text-muted); background: var(--bg-surface);
+    position: sticky; top: 0; z-index: 1; border-bottom: 1px solid var(--border-default);
+  }
+  .history-table td {
+    padding: 10px 16px; font-size: 13px; border-bottom: 1px solid var(--border-default);
+  }
+  .history-row { cursor: pointer; transition: background 120ms; }
+  .history-row:hover { background: rgba(0,200,151,0.04); }
+  .history-ticker { font-weight: 600; font-family: var(--font-mono); }
+  .analyst-letters { font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); letter-spacing: 0.04em; }
+  .pagination { display: flex; align-items: center; gap: 8px; padding: 12px 16px; justify-content: center; }
+  .pagination button {
+    padding: 4px 10px; background: var(--bg-surface); border: 1px solid var(--border-default);
+    border-radius: 6px; color: var(--text-secondary); cursor: pointer; font-size: 12px;
+  }
+  .pagination button:hover { border-color: var(--accent-teal); color: var(--accent-teal); }
+  .pagination button:disabled { opacity: 0.3; cursor: not-allowed; }
+  .pagination span { color: var(--text-secondary); font-size: 12px; }
+
+  /* ══ Toast ═══════════════════════════════════════════ */
+  .toast-container {
+    position: fixed; bottom: 20px; right: 20px; z-index: 1000;
+    display: flex; flex-direction: column-reverse; gap: 8px;
+  }
+  .toast {
+    padding: 10px 18px; border-radius: 8px; font-size: 13px;
+    animation: slideIn 200ms ease;
+    max-width: 360px;
+  }
+  @keyframes slideIn { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:translateX(0); } }
+  .toast.success { background: rgba(38,166,154,0.2); border: 1px solid var(--signal-bullish); color: var(--signal-bullish); }
+  .toast.error { background: rgba(239,83,80,0.2); border: 1px solid var(--signal-bearish); color: var(--signal-bearish); }
+  .toast.info { background: rgba(66,165,245,0.2); border: 1px solid var(--status-active); color: var(--status-active); }
+
+  /* ══ Spinner ═════════════════════════════════════════ */
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--text-muted); border-top-color: var(--accent-teal); border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ══ Scrollbar ═══════════════════════════════════════ */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+  /* ══ Responsive ═══════════════════════════════════════ */
+  @media (max-width: 1279px) {
+    .panel-agents { width: 220px; min-width: 180px; }
+    .panel-log { width: 280px; min-width: 200px; }
+    .report-nav { width: 140px; min-width: 120px; font-size: 11px; }
+  }
+  @media (max-width: 768px) {
+    .sidebar { width: 100%; height: 48px; bottom: auto; flex-direction: row; padding: 0; position: fixed; bottom: 0; top: auto; }
+    .sidebar:hover { width: 100%; }
+    .sidebar-spacer, .sidebar-brand, .nav-label { display: none; }
+    .nav-item { height: auto; margin-bottom: 0; flex: 1; }
+    .nav-item.active::before { display: none; }
+    .main { margin-bottom: 48px; }
+    .panel-row { flex-direction: column; }
+    .panel-agents, .panel-log, .panel-report { width: auto; min-width: auto; }
+    .panel-agents, .panel-log { max-height: 40%; }
+    .panel-report { flex:1; }
+    .status-bar { font-size: 10px; gap: 12px; }
+    .form-card { padding: 20px; }
+    .form-row { flex-direction: column; gap: 0; }
+    .report-body-area { flex-direction: column; }
+    .report-nav { width: auto; flex-direction: row; display: flex; overflow-x: auto; gap: 4px; padding: 8px; border-right: none; border-bottom: 1px solid var(--border-default); }
+    .report-nav-item { white-space: nowrap; border-left: none; border-bottom: 2px solid transparent; }
+    .report-nav-item.active { border-left: none; border-bottom-color: var(--accent-teal); }
+    .history-table { font-size: 11px; }
+    .history-table td, .history-table th { padding: 6px 8px; }
+  }
+
+  /* ── Token prompt overlay ─────────────────────── */
+  .token-overlay {
+    position: fixed; inset: 0;
+    background: rgba(11,14,20,0.92);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999;
+  }
+  .token-card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-default);
+    border-radius: 12px;
+    padding: 32px;
+    max-width: 420px; width: 90%;
+    text-align: center;
+  }
+  .token-card h2 { font-size: 18px; margin-bottom: 8px; }
+  .token-card p { color: var(--text-secondary); font-size: 13px; margin-bottom: 20px; }
+  .token-card input {
+    width: 100%; padding: 10px 14px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-default);
+    border-radius: 8px; color: var(--text-primary);
+    font-family: var(--font-mono); font-size: 13px;
+    text-align: center;
+  }
+  .token-card input:focus { outline: none; border-color: var(--accent-teal); }
+  .token-card button {
+    margin-top: 12px; width: 100%; padding: 10px;
+    background: var(--accent-teal); color: #000;
+    border: none; border-radius: 8px; font-weight: 600;
+    font-size: 14px; cursor: pointer;
+  }
+  .token-card button:hover { background: var(--accent-teal-hover); }
+  .token-error { color: var(--signal-bearish); font-size: 12px; margin-top: 8px; }
+
+</style>
+</head>
+<body x-data="app()" x-init="init()">
+
+<!-- ═══════════════════════════════════════════════════════
+     TOKEN PROMPT OVERLAY
+     Shown when no API token is stored.  Accepts the token
+     via manual entry or ?token= URL parameter.
+     ═══════════════════════════════════════════════════════ -->
+<div class="token-overlay" x-show="!token" x-cloak>
+  <div class="token-card">
+    <h2>TradingAgents — Authentication</h2>
+    <p>Enter your API token to access the dashboard.</p>
+    <input type="password" placeholder="Paste your token here..."
+           x-model="tokenInput" @keydown.enter="saveToken()">
+    <button @click="saveToken()">Unlock</button>
+    <p class="token-error" x-show="tokenError" x-text="tokenError"></p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     SIDEBAR
+     ═══════════════════════════════════════════════════════ -->
+<nav class="sidebar">
+  <div class="nav-item" :class="{ active: screen === 'input' }" @click="navigateToInput()">
+    <span class="nav-icon">▶</span>
+    <span class="nav-label">New Analysis</span>
+  </div>
+  <div class="nav-item" :class="{ active: screen === 'history' }" @click="navigateToHistory()">
+    <span class="nav-icon">📋</span>
+    <span class="nav-label">History</span>
+  </div>
+  <div class="sidebar-spacer"></div>
+  <div class="sidebar-brand">Trading<br>Agents</div>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════════
+     MAIN CONTENT AREA
+     ═══════════════════════════════════════════════════════ -->
+<div class="main">
+
+  <!-- ══ SCREEN 1: INPUT FORM ═══════════════════════════ -->
+  <div class="screen form-screen" :class="{ active: screen === 'input' }">
+    <div class="form-card">
+      <h1>New Analysis</h1>
+      <p class="subtitle">Configure and run a multi-agent trading analysis</p>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Ticker Symbol</label>
+          <input type="text" class="form-input" placeholder="AAPL" x-model="form.ticker"
+                 @input="form.ticker = form.ticker.toUpperCase()" maxlength="10">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Analysis Date</label>
+          <input type="date" class="form-input" x-model="form.date">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Analyst Team</label>
+        <div class="checkbox-group">
+          <label class="checkbox-item" :class="{ checked: form.analysts.includes('market') }">
+            <input type="checkbox" value="market" x-model="form.analysts"> Market
+          </label>
+          <label class="checkbox-item" :class="{ checked: form.analysts.includes('social') }">
+            <input type="checkbox" value="social" x-model="form.analysts"> Sentiment
+          </label>
+          <label class="checkbox-item" :class="{ checked: form.analysts.includes('news') }">
+            <input type="checkbox" value="news" x-model="form.analysts"> News
+          </label>
+          <label class="checkbox-item" :class="{ checked: form.analysts.includes('fundamentals') }">
+            <input type="checkbox" value="fundamentals" x-model="form.analysts"> Fundamentals
+          </label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Research Depth</label>
+        <div class="slider-group">
+          <input type="range" min="1" max="3" step="1" x-model.number="form.researchDepth">
+          <span class="slider-value" x-text="depthLabel()"></span>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">LLM Provider</label>
+          <select class="form-input" x-model="form.llmProvider">
+            <option value="openai">OpenAI</option>
+            <option value="deepseek">DeepSeek</option>
+            <option value="anthropic">Anthropic</option>
+            <option value="google">Google</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Output Language</label>
+          <select class="form-input" x-model="form.outputLanguage">
+            <option value="English">English</option>
+            <option value="Chinese">中文</option>
+            <option value="Japanese">日本語</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Quick Thinking Model</label>
+          <select class="form-input" x-model="form.quickThinkLLM">
+            <option value="">Provider default</option>
+            <option value="gpt-5.4-mini">gpt-5.4-mini</option>
+            <option value="deepseek-v4-flash">deepseek-v4-flash</option>
+            <option value="claude-haiku-4">claude-haiku-4</option>
+            <option value="gemini-flash-2">gemini-flash-2</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Deep Thinking Model</label>
+          <select class="form-input" x-model="form.deepThinkLLM">
+            <option value="">Provider default</option>
+            <option value="gpt-5.4">gpt-5.4</option>
+            <option value="deepseek-v4-pro">deepseek-v4-pro</option>
+            <option value="claude-sonnet-4">claude-sonnet-4</option>
+            <option value="gemini-pro-2">gemini-pro-2</option>
+          </select>
+        </div>
+      </div>
+
+      <button class="btn-submit" :class="{ loading: submitting }" :disabled="!canSubmit() || submitting"
+              @click="startAnalysis()">
+        <span x-show="!submitting">▶ Run Analysis</span>
+        <span x-show="submitting"><span class="spinner"></span> Starting...</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ══ SCREEN 2: LIVE ANALYSIS ════════════════════════ -->
+  <div class="screen live-screen" :class="{ active: screen === 'live' }">
+
+    <div class="status-bar">
+      <span class="live-dot"></span>
+      <span class="ticker-name" x-text="live.ticker"></span>
+      <span class="divider">|</span>
+      <span x-text="live.date"></span>
+      <span class="divider">|</span>
+      <span>⏱ <span x-text="elapsedDisplay"></span></span>
+      <span class="divider">|</span>
+      <span>Tokens: <span x-text="fmtNum(live.tokensIn)">0</span></span>
+    </div>
+
+    <div class="panel-row">
+      <!-- Agents Panel -->
+      <div class="panel panel-agents">
+        <div class="panel-header">Agents</div>
+        <div class="panel-body">
+          <table class="agent-table">
+            <thead><tr><th>Team</th><th>Agent</th><th>Status</th></tr></thead>
+            <tbody>
+              <template x-for="team in AGENT_DEFS" :key="team.team">
+                <template x-for="(agent, ai) in team.agents" :key="agent.name">
+                  <tr>
+                    <td x-show="ai === 0" class="team-row" :rowspan="team.agents.length" x-text="team.team"></td>
+                    <td class="agent-name" x-text="agent.name"></td>
+                    <td>
+                      <span class="agent-status-meta">
+                        <span class="status-dot" :class="agentStatusClass(agent.name)"></span>
+                        <span x-text="agentStatusLabel(agent.name)"></span>
+                      </span>
+                    </td>
+                  </tr>
+                </template>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Message Log -->
+      <div class="panel panel-log">
+        <div class="panel-header">Messages &amp; Tools</div>
+        <div class="panel-body" id="msg-log-scroll">
+          <template x-for="msg in live.messages" :key="msg.id">
+            <div class="msg-row">
+              <span class="msg-time" x-text="msg.time"></span>
+              <span class="msg-badge" :class="msg.type" x-text="msg.type"></span>
+              <span class="msg-body" x-text="msg.content"></span>
+            </div>
+          </template>
+          <div x-show="live.messages.length === 0" style="padding:16px;color:var(--text-muted);font-style:italic;">
+            Waiting for analysis stream...
+          </div>
+        </div>
+      </div>
+
+      <!-- Report Panel -->
+      <div class="panel panel-report">
+        <div class="panel-header">
+          <span x-text="live.reportTitle || 'Report'"></span>
+        </div>
+        <div class="panel-body" id="report-scroll">
+          <div class="report-inner" x-html="renderMarkdown(live.report)"></div>
+          <div x-show="!live.report" style="padding:16px;color:var(--text-muted);font-style:italic;">
+            Waiting for report sections...
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats Footer -->
+    <div class="stats-footer">
+      <span class="stat-item">Agents: <span class="stat-value" x-text="live.agentsDone + '/' + live.agentsTotal"></span></span>
+      <span class="stat-divider">|</span>
+      <span class="stat-item">LLM: <span class="stat-value" x-text="live.llmCalls"></span></span>
+      <span class="stat-divider">|</span>
+      <span class="stat-item">Tools: <span class="stat-value" x-text="live.toolsCalled"></span></span>
+      <span class="stat-divider">|</span>
+      <span class="stat-item">Reports: <span class="stat-value" x-text="live.reportsGenerated + '/' + live.maxReports"></span></span>
+    </div>
+
+  </div>
+
+  <!-- ══ SCREEN 3: REPORT VIEW ═══════════════════════════ -->
+  <div class="screen report-screen" :class="{ active: screen === 'report' }">
+
+    <div class="report-topbar">
+      <button class="back-btn" @click="screen = 'history'">← Back</button>
+      <span class="ticker-name" x-text="reportView.ticker"></span>
+      <span class="divider" style="color:var(--border-default)">|</span>
+      <span x-text="reportView.date"></span>
+      <span class="decision-badge" :class="reportView.decision.toLowerCase()" x-show="reportView.decision"
+            x-text="reportView.decision"></span>
+      <button class="btn-download" @click="downloadReport()">⬇ Download</button>
+    </div>
+
+    <div class="report-body-area">
+      <!-- Section Nav -->
+      <div class="report-nav">
+        <template x-for="section in reportView.sections" :key="section.id">
+          <button class="report-nav-item" :class="{ active: reportView.activeSection === section.id }"
+                  @click="reportView.activeSection = section.id; scrollToSection(section.id)"
+                  x-text="section.title"></button>
+        </template>
+      </div>
+
+      <!-- Report Body -->
+      <div class="report-main" id="report-main">
+        <template x-for="section in reportView.sections" :key="section.id">
+          <div :id="'sec-' + section.id" style="margin-bottom:24px;">
+            <h2 class="section-toggle" @click="toggleSection(section.id)" x-text="section.title"
+                :style="'color:' + (reportView.activeSection === section.id ? 'var(--accent-teal)' : 'inherit')">
+            </h2>
+            <div class="section-body" :class="{ collapsed: !section.expanded }"
+                 :style="'max-height:' + (section.expanded ? 'none' : '0')">
+              <div class="report-inner" x-html="renderMarkdown(section.content)"></div>
+            </div>
+          </div>
+        </template>
+        <div x-show="!reportView.sections.length" style="padding:24px;color:var(--text-muted);">
+          Loading report...
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══ SCREEN 4: HISTORY ═══════════════════════════════ -->
+  <div class="screen history-screen" :class="{ active: screen === 'history' }">
+
+    <div class="history-topbar">
+      <input type="text" class="search-input" placeholder="🔍 Filter tickers..." x-model="history.search"
+             @input="history.page = 1">
+      <button class="filter-chip" :class="{ active: history.filter === '' }" @click="history.filter = ''; history.page = 1">All</button>
+      <button class="filter-chip" :class="{ active: history.filter === 'buy' }" @click="history.filter = 'buy'; history.page = 1">Buy</button>
+      <button class="filter-chip" :class="{ active: history.filter === 'sell' }" @click="history.filter = 'sell'; history.page = 1">Sell</button>
+      <button class="filter-chip" :class="{ active: history.filter === 'hold' }" @click="history.filter = 'hold'; history.page = 1">Hold</button>
+    </div>
+
+    <div style="flex:1; overflow-y:auto;">
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th>Ticker</th>
+            <th>Date</th>
+            <th>Decision</th>
+            <th>Analysts</th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="item in historyPageItems()" :key="item.ticker + item.date">
+            <tr class="history-row" @click="viewReport(item.ticker, item.date)">
+              <td class="history-ticker" x-text="item.ticker"></td>
+              <td x-text="item.date"></td>
+              <td>
+                <span class="decision-badge" :class="item.decision.toLowerCase()" x-text="item.decision"
+                      style="padding:2px 10px;font-size:10px;"></span>
+              </td>
+              <td class="analyst-letters" x-text="item.analystsStr"></td>
+            </tr>
+          </template>
+          <tr x-show="history.items.length === 0 && !history.loading">
+            <td colspan="4" style="text-align:center;padding:40px;color:var(--text-muted);">
+              No reports found. Run an analysis first!
+            </td>
+          </tr>
+          <tr x-show="history.loading">
+            <td colspan="4" style="text-align:center;padding:24px;"><span class="spinner"></span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pagination">
+      <button :disabled="history.page <= 1" @click="history.page--">←</button>
+      <span x-text="history.page + ' / ' + Math.max(1, totalPages())"></span>
+      <button :disabled="history.page >= totalPages()" @click="history.page++">→</button>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container">
+  <template x-for="toast in toasts" :key="toast.id">
+    <div class="toast" :class="toast.type" x-text="toast.message" @click="removeToast(toast.id)"></div>
+  </template>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     APP SCRIPT
+     ═══════════════════════════════════════════════════════ -->
+<script>
+  // ── API base URL ──────────────────────────────────────
+  // Override by setting window.TRADINGAGENTS_API_BASE before loading.
+  const API_BASE = window.TRADINGAGENTS_API_BASE || '';
+
+  // ── Agent definitions (mirrors graph pipeline) ────────
+  const AGENT_DEFS = [
+    {team: 'Analyst Team', agents: [
+      {name: 'Market Analyst'}, {name: 'Sentiment Analyst'},
+      {name: 'News Analyst'}, {name: 'Fundamentals Analyst'}
+    ]},
+    {team: 'Research Team', agents: [
+      {name: 'Bull Researcher'}, {name: 'Bear Researcher'}, {name: 'Research Manager'}
+    ]},
+    {team: 'Trading Team', agents: [{name: 'Trader'}]},
+    {team: 'Risk Management', agents: [
+      {name: 'Aggressive Analyst'}, {name: 'Neutral Analyst'}, {name: 'Conservative Analyst'}
+    ]},
+    {team: 'Portfolio Management', agents: [{name: 'Portfolio Manager'}]}
+  ];
+
+  function app() {
+    // ── Form defaults loader (standalone, called during object construction) ──
+    function _loadFormDefaults() {
+      try {
+        const saved = localStorage.getItem('tradingagents_form');
+        if (saved) return JSON.parse(saved);
+      } catch (e) {}
+      return {
+        ticker: '', date: new Date().toISOString().slice(0, 10),
+        analysts: ['market', 'social', 'news', 'fundamentals'],
+        researchDepth: 2, llmProvider: 'deepseek',
+        deepThinkLLM: '', quickThinkLLM: '', outputLanguage: 'English',
+      };
+    }
+    return {
+      // ── Alpine state ──────────────────────────────────
+      screen: 'input',
+      AGENT_DEFS,
+      submitting: false,
+      toasts: [],
+      _toastId: 0,
+      // Auth
+      token: localStorage.getItem('tradingagents_token') || '',
+      tokenInput: '',
+      tokenError: '',
+      // Form (defaults loaded from localStorage at init)
+      form: _loadFormDefaults(),
+      // Live analysis
+      live: {
+        ticker: '', date: '', jobId: '', status: 'idle',
+        agentsDone: 0, agentsTotal: 11, llmCalls: 0, toolsCalled: 0,
+        reportsGenerated: 0, maxReports: 5, tokensIn: 0, tokensOut: 0,
+        elapsed: 0, timerInterval: null,
+        messages: [], report: '', reportTitle: 'Report',
+        agentStates: {}, reportSections: {},
+      },
+      // Report view
+      reportView: {
+        ticker: '', date: '', decision: '',
+        sections: [], activeSection: null,
+      },
+      // History
+      history: {
+        items: [], loading: false, search: '', filter: '', page: 1, perPage: 20,
+      },
+
+      // ── Lifecycle ─────────────────────────────────────
+      init() {
+        // Load token from URL parameter if present
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlToken = urlParams.get('token');
+        if (urlToken) {
+          localStorage.setItem('tradingagents_token', urlToken);
+          this.token = urlToken;
+          // Clean the URL so the token isn't visible in the address bar
+          window.history.replaceState({}, '', window.location.pathname);
+        }
+        // Warn if navigating away during active analysis
+        window.addEventListener('beforeunload', (e) => {
+          if (this.live.status === 'running') {
+            e.preventDefault();
+            e.returnValue = 'Analysis in progress — leave anyway?';
+          }
+        });
+      },
+
+      _cleanupSSE() {
+        if (this._currentSSE) {
+          this._currentSSE.close();
+          this._currentSSE = null;
+        }
+        clearInterval(this.live.timerInterval);
+      },
+
+      // ── Auth helpers ───────────────────────────────────
+      saveToken() {
+        const t = this.tokenInput.trim();
+        if (!t) { this.tokenError = 'Token cannot be empty.'; return; }
+        // Validate against /auth/verify which properly checks the token
+        fetch(API_BASE + '/auth/verify', {
+          headers: { 'Authorization': 'Bearer ' + t }
+        }).then(r => {
+          if (r.ok) {
+            this.token = t;
+            this.tokenInput = '';
+            this.tokenError = '';
+            localStorage.setItem('tradingagents_token', t);
+          } else {
+            this.tokenError = 'Invalid token (server returned ' + r.status + ').';
+          }
+        }).catch(() => {
+          this.tokenError = 'Cannot reach server. Is the app running?';
+        });
+      },
+      getAuthHeaders() {
+        const h = {};
+        if (this.token) h['Authorization'] = 'Bearer ' + this.token;
+        return h;
+      },
+
+      // ── Computed ──────────────────────────────────────
+      get elapsedDisplay() {
+        const e = this.live.elapsed;
+        const m = Math.floor(e / 60), s = e % 60;
+        return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+      },
+
+      // ── Input Form ────────────────────────────────────
+      canSubmit() {
+        return this.form.ticker.trim().length > 0 && this.form.analysts.length > 0;
+      },
+      depthLabel() {
+        const d = this.form.researchDepth;
+        return d === 1 ? '1 round — Quick' : d === 2 ? '2 rounds — Standard' : '3 rounds — Deep';
+      },
+
+      async startAnalysis() {
+        if (!this.canSubmit() || this.submitting) return;
+        this.submitting = true;
+
+        // Save form to localStorage
+        localStorage.setItem('tradingagents_form', JSON.stringify(this.form));
+
+        const payload = {
+          ticker: this.form.ticker.trim().toUpperCase(),
+          date: this.form.date,
+          analysts: this.form.analysts,
+          research_depth: this.form.researchDepth >= 3 ? 'deep' : this.form.researchDepth <= 1 ? 'quick' : 'standard',
+          llm_provider: this.form.llmProvider || null,
+          deep_think_llm: this.form.deepThinkLLM || null,
+          quick_think_llm: this.form.quickThinkLLM || null,
+          output_language: this.form.outputLanguage || null,
+        };
+
+        try {
+          const resp = await fetch(API_BASE + '/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
+            body: JSON.stringify(payload),
+          });
+          if (!resp.ok) {
+            let errMsg = resp.statusText;
+            try {
+              const err = await resp.json();
+              // FastAPI validation errors return detail as an array
+              if (Array.isArray(err.detail)) {
+                errMsg = err.detail.map(e => e.msg || JSON.stringify(e)).join('; ');
+              } else if (typeof err.detail === 'string') {
+                errMsg = err.detail;
+              }
+            } catch (_) {}
+            throw new Error(errMsg || 'Analysis start failed');
+          }
+          const data = await resp.json();
+          this.live.jobId = data.job_id;
+          this.live.ticker = payload.ticker;
+          this.live.date = payload.date;
+          this.live.status = 'running';
+          this.resetLiveState();
+          this.screen = 'live';
+          this.connectSSE(data.job_id);
+        } catch (e) {
+          this.showToast('error', 'Failed to start analysis: ' + e.message);
+        } finally {
+          this.submitting = false;
+        }
+      },
+
+      // ── Live Analysis ─────────────────────────────────
+      resetLiveState() {
+        this.live.agentsDone = 0; this.live.llmCalls = 0; this.live.toolsCalled = 0;
+        this.live.reportsGenerated = 0; this.live.tokensIn = 0; this.live.tokensOut = 0;
+        this.live.elapsed = 0; this.live.messages = []; this.live.report = '';
+        this.live.reportTitle = 'Report'; this.live.agentStates = {}; this.live.reportSections = {};
+        // Dynamic agent count: selected analysts + 8 always-active agents
+        // Research: Bull, Bear, Manager = 3
+        // Trading: Trader = 1
+        // Risk: Aggressive, Neutral, Conservative = 3
+        // Portfolio: Manager = 1
+        // Total always-active = 8
+        this.live.agentsTotal = this.form.analysts.length + 8;
+        this.live.maxReports = this.form.analysts.length + 1;
+        clearInterval(this.live.timerInterval);
+      },
+
+      startTimer() {
+        const start = Date.now();
+        this.live.timerInterval = setInterval(() => {
+          this.live.elapsed = Math.floor((Date.now() - start) / 1000);
+        }, 250);
+      },
+
+      connectSSE(jobId) {
+        this.startTimer();
+        this.addLiveMsg('system', `Analysis started for ${this.live.ticker}`);
+        this._reconnectCount = 0;
+
+        let url = API_BASE + '/stream/' + jobId;
+        if (this.token) url += '?token=' + encodeURIComponent(this.token);
+        const es = new EventSource(url);
+
+        es.onmessage = (e) => {
+          try {
+            const evt = JSON.parse(e.data);
+            this.handleSSEEvent(evt);
+            this._reconnectCount = 0; // reset on successful message
+          } catch (err) {
+            // heartbeat or malformed — ignore, but still reset counter
+            this._reconnectCount = 0;
+          }
+        };
+
+        es.onerror = () => {
+          this._reconnectCount = (this._reconnectCount || 0) + 1;
+          if (this.live.status === 'done' || this.live.status === 'error') {
+            es.close();
+            this._currentSSE = null;
+          } else if (this._reconnectCount > 10) {
+            // Backend likely crashed — stop reconnecting
+            es.close();
+            this._currentSSE = null;
+            this.live.status = 'error';
+            this.addLiveMsg('error', 'Connection lost after 10 retries. Backend may have crashed.');
+            clearInterval(this.live.timerInterval);
+            this.showToast('error', 'Analysis stream disconnected');
+          }
+        };
+
+        this._currentSSE = es; // store for cleanup
+      },
+
+      handleSSEEvent(evt) {
+        const t = evt.type;
+        const d = evt.data || {};
+
+        if (t === 'heartbeat') return;
+
+        if (t === 'status') {
+          this.addLiveMsg('system', d.message || 'Status update');
+          return;
+        }
+
+        if (t === 'report') {
+          const section = d.section || 'report';
+          const content = d.report || '';
+          this.live.reportSections[section] = content;
+          // Build combined report in order
+          const order = ['market_report','sentiment_report','news_report','fundamentals_report','trader_plan'];
+          const titles = {
+            market_report: '## Market Analysis', sentiment_report: '## Sentiment Analysis',
+            news_report: '## News Analysis', fundamentals_report: '## Fundamentals Analysis',
+            trader_plan: '## Trading Plan',
+          };
+          let combined = '';
+          order.forEach(sec => {
+            if (this.live.reportSections[sec]) {
+              combined += (combined ? '\n\n' : '') + (titles[sec] || '## ' + sec) + '\n\n' + this.live.reportSections[sec];
+            }
+          });
+          this.live.report = combined;
+          this.live.reportsGenerated = Math.min(this.live.maxReports, this.live.reportsGenerated + 1);
+          const node = d.node || '';
+          this._completeAgentBySection(section);
+          this.addLiveMsg('report', `Report section generated: ${section.replace('_',' ')}${node ? ' (' + node + ')' : ''}`);
+          this._updateAgentFromNode(d.node);
+          this.$nextTick(() => this._scrollReport());
+          return;
+        }
+
+        if (t === 'debate') {
+          const dtype = d.debate_type || '';
+          const dnode = d.node || '';
+          this.addLiveMsg('debate', `${dtype} debate round complete${dnode ? ' (' + dnode + ')' : ''}`);
+          this._updateAgentFromNode(dnode);
+          this._markAgentDone(dnode);
+          return;
+        }
+
+        if (t === 'message') {
+          const content = typeof d.content === 'string' ? d.content.substring(0, 500) : '';
+          this.addLiveMsg('agent', content || '...');
+          if (d.node) this._updateAgentFromNode(d.node);
+          return;
+        }
+
+        if (t === 'chunk') {
+          this._updateAgentFromNode(d.node);
+          this.live.toolsCalled++;
+          return;
+        }
+
+        if (t === 'decision') {
+          const decision = d.final_decision || '';
+          const signal = d.signal || '';
+          this.addLiveMsg('decision', `Final decision: ${decision}${signal ? ' (' + signal + ')' : ''}`);
+          this.live.finalDecision = decision;
+          if (d.node) this._updateAgentFromNode(d.node);
+          this._markAgentDone('portfolio_manager');
+          return;
+        }
+
+        if (t === 'complete') {
+          this.live.status = 'done';
+          this.live.agentsDone = this.live.agentsTotal;
+          this.live.reportTitle = 'Report — Complete';
+          const result = d.result || {};
+          this.addLiveMsg('system', 'Analysis complete. Decision: ' + (result.decision || 'N/A'));
+          this._completeAllAgents();
+          this._cleanupSSE();
+          this.showToast('success', `Analysis complete: ${result.decision || 'Done'}`);
+          return;
+        }
+
+        if (t === 'error') {
+          this.live.status = 'error';
+          this.addLiveMsg('error', d.message || 'Analysis failed');
+          this._cleanupSSE();
+          this.showToast('error', 'Analysis failed: ' + (d.message || 'Unknown error'));
+          return;
+        }
+      },
+
+      _reportSectionToAgent: {
+        'market_report': 'Market Analyst',
+        'sentiment_report': 'Sentiment Analyst',
+        'news_report': 'News Analyst',
+        'fundamentals_report': 'Fundamentals Analyst',
+        'trader_plan': 'Trader',
+      },
+
+      _updateAgentFromNode(node) {
+        if (!node) return;
+        const map = {
+          'market_analyst': 'Market Analyst', 'sentiment_analyst': 'Sentiment Analyst',
+          'news_analyst': 'News Analyst', 'fundamentals_analyst': 'Fundamentals Analyst',
+          'bull_researcher': 'Bull Researcher', 'bear_researcher': 'Bear Researcher',
+          'research_manager': 'Research Manager', 'trader': 'Trader',
+          'risk_analyst_aggressive': 'Aggressive Analyst',
+          'risk_analyst_neutral': 'Neutral Analyst',
+          'risk_analyst_conservative': 'Conservative Analyst',
+          'portfolio_manager': 'Portfolio Manager',
+        };
+        const name = map[node] || node;
+        if (name && !this.live.agentStates[name]) {
+          this.live.agentStates[name] = 'active';
+          this.live.llmCalls++;
+        }
+      },
+
+      _completeAgentBySection(section) {
+        const name = this._reportSectionToAgent[section];
+        if (name) {
+          this.live.agentStates[name] = 'done';
+          this.live.agentsDone = Object.values(this.live.agentStates).filter(s => s === 'done').length;
+        }
+      },
+
+      _markAgentDone(nodeName) {
+        if (!nodeName) return;
+        const map = {
+          'bull_researcher': 'Bull Researcher',
+          'bear_researcher': 'Bear Researcher',
+          'research_manager': 'Research Manager',
+          'trader': 'Trader',
+          'risk_analyst_aggressive': 'Aggressive Analyst',
+          'risk_analyst_neutral': 'Neutral Analyst',
+          'risk_analyst_conservative': 'Conservative Analyst',
+          'portfolio_manager': 'Portfolio Manager',
+        };
+        const name = map[nodeName];
+        if (name && this.live.agentStates[name] !== 'done') {
+          this.live.agentStates[name] = 'done';
+          this.live.agentsDone = Object.values(this.live.agentStates).filter(s => s === 'done').length;
+        }
+      },
+
+      _completeAllAgents() {
+        AGENT_DEFS.forEach(team => {
+          team.agents.forEach(a => {
+            this.live.agentStates[a.name] = 'done';
+          });
+        });
+      },
+
+      agentStatusClass(name) {
+        const s = this.live.agentStates[name];
+        if (s === 'active') return 'active';
+        if (s === 'done') return 'done';
+        if (s === 'error') return 'error';
+        return 'pending';
+      },
+      agentStatusLabel(name) {
+        const s = this.live.agentStates[name];
+        return s === 'active' ? 'active' : s === 'done' ? 'done' : s === 'error' ? 'error' : 'pending';
+      },
+
+      addLiveMsg(type, content) {
+        const now = new Date();
+        this.live.messages.push({
+          id: ++this._msgId, type, content,
+          time: now.toTimeString().slice(0, 8),
+        });
+        // Estimate tokens from message length (~4 chars per token)
+        const estTokens = Math.ceil((content || '').length / 4);
+        this.live.tokensIn += estTokens;
+        this.$nextTick(() => {
+          const el = document.getElementById('msg-log-scroll');
+          if (el) el.scrollTop = el.scrollHeight;
+        });
+      },
+      _msgId: 0,
+      _scrollReport() {
+        const el = document.getElementById('report-scroll');
+        if (el) el.scrollTop = el.scrollHeight;
+      },
+
+      fmtNum(n) {
+        if (n >= 1000) return (n/1000).toFixed(1) + 'k';
+        return String(Math.round(n));
+      },
+
+      renderMarkdown(md) {
+        if (!md) return '';
+        try {
+          let html = marked.parse(md);
+          html = html.replace(/\b(BUY|buy|Bullish|bullish)\b/g, '<span class="bullish">$1</span>');
+          html = html.replace(/\b(SELL|sell|Bearish|bearish)\b/g, '<span class="bearish">$1</span>');
+          html = html.replace(/\b(HOLD|hold|Neutral|neutral)\b/g, '<span class="neutral">$1</span>');
+          return html;
+        } catch(e) {
+          return md.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        }
+      },
+
+      // ── Report View ───────────────────────────────────
+      async viewReport(ticker, date) {
+        this.reportView = { ticker, date, decision: '', sections: [], activeSection: null };
+        this.screen = 'report';
+
+        try {
+          const [jsonResp, mdResp] = await Promise.all([
+            fetch(API_BASE + '/reports/' + ticker + '/' + date, { headers: this.getAuthHeaders() }).then(r => r.ok ? r.json() : null),
+            fetch(API_BASE + '/reports/' + ticker + '/' + date + '/markdown', { headers: this.getAuthHeaders() }).then(r => r.ok ? r.text() : null),
+          ]);
+
+          const data = jsonResp || {};
+          const rawDecision = (data.final_trade_decision || '').toUpperCase();
+
+          // Extract signal from decision string using structured patterns
+          let shortDecision = '';
+          const pats = [
+            /\bDECISION\s*:\s*(BUY|SELL|HOLD)\b/i,
+            /\*\*(BUY|SELL|HOLD)\*\*/i,
+            /^\s*(BUY|SELL|HOLD)\b/mi,
+          ];
+          for (const pat of pats) {
+            const m = rawDecision.match(pat);
+            if (m) { shortDecision = m[1].toUpperCase(); break; }
+          }
+          // Fallback to substring
+          if (!shortDecision) {
+            if (rawDecision.includes('BUY')) shortDecision = 'BUY';
+            else if (rawDecision.includes('SELL')) shortDecision = 'SELL';
+            else if (rawDecision.includes('HOLD')) shortDecision = 'HOLD';
+          }
+
+          // Build sections from JSON
+          const sectionDefs = [
+            {key: 'market_report', title: 'Market Analysis'},
+            {key: 'sentiment_report', title: 'Sentiment Analysis'},
+            {key: 'news_report', title: 'News Analysis'},
+            {key: 'fundamentals_report', title: 'Fundamentals Analysis'},
+            {key: 'trader_investment_plan', title: 'Trading Plan', alt: 'investment_plan'},
+            {key: 'investment_debate_state', title: 'Research Debate', isJson: true},
+            {key: 'risk_debate_state', title: 'Risk Assessment', isJson: true},
+            {key: 'final_trade_decision', title: 'Final Decision'},
+          ];
+
+          const sections = sectionDefs.map((def, i) => {
+            let content = data[def.key];
+            if (!content && def.alt) content = data[def.alt];
+            if (!content) content = 'N/A';
+            if (def.isJson && typeof content === 'object') {
+              const jd = content.judge_decision || '';
+              content = jd ? '```json\n' + JSON.stringify(jd, null, 2) + '\n```' : JSON.stringify(content, null, 2);
+            }
+            return {
+              id: 's' + i,
+              title: def.title,
+              content: String(content),
+              expanded: true,
+            };
+          });
+
+          this.reportView = {
+            ticker, date,
+            decision: shortDecision || rawDecision || 'N/A',
+            sections, activeSection: sections.length ? sections[0].id : null,
+          };
+        } catch (e) {
+          this.showToast('error', 'Failed to load report: ' + e.message);
+        }
+      },
+
+      toggleSection(id) {
+        const s = this.reportView.sections.find(s => s.id === id);
+        if (s) s.expanded = !s.expanded;
+      },
+      scrollToSection(id) {
+        const el = document.getElementById('sec-' + id);
+        if (el) el.scrollIntoView({behavior: 'smooth', block: 'start'});
+      },
+
+      downloadReport() {
+        // Download as markdown
+        let md = '# ' + this.reportView.ticker + ' — ' + this.reportView.date + '\n\n';
+        this.reportView.sections.forEach(s => {
+          md += '## ' + s.title + '\n\n' + s.content + '\n\n';
+        });
+        md += '\n---\n*Generated by TradingAgents*';
+        const blob = new Blob([md], {type: 'text/markdown'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = this.reportView.ticker + '_' + this.reportView.date + '.md';
+        a.click(); URL.revokeObjectURL(url);
+      },
+
+      // ── History ───────────────────────────────────────
+      navigateToInput() {
+        this._cleanupSSE();
+        this.screen = 'input';
+      },
+      async navigateToHistory() {
+        this.screen = 'history';
+        if (this.history.items.length === 0) await this.loadHistory();
+      },
+
+      async loadHistory() {
+        this.history.loading = true;
+        try {
+          const resp = await fetch(API_BASE + '/reports', { headers: this.getAuthHeaders() });
+          if (!resp.ok) throw new Error('Failed to load');
+          const data = await resp.json();
+          const items = (data.reports || []).map(r => {
+            const pathParts = r.path.replace(/\\/g, '/').split('/');
+            return {
+              ticker: r.ticker,
+              date: r.date,
+              decision: '', // lazy loaded on view
+              analystsStr: '', // resolved from report JSON
+              path: r.path,
+            };
+          });
+
+          // Resolve decisions + analysts from report JSONs
+          await Promise.all(items.map(async (item, i) => {
+            try {
+              const r = await fetch(API_BASE + '/reports/' + item.ticker + '/' + item.date, { headers: this.getAuthHeaders() });
+              if (r.ok) {
+                const d = await r.json();
+                // ── better decision extraction ──
+                const raw = (d.final_trade_decision || '').toUpperCase();
+                let dec = '';
+                // Try structured patterns first
+                const pats = [
+                  /\bDECISION\s*:\s*(BUY|SELL|HOLD)\b/i,
+                  /\*\*(BUY|SELL|HOLD)\*\*/i,
+                  /^\s*(BUY|SELL|HOLD)\b/mi,
+                ];
+                for (const pat of pats) {
+                  const m = raw.match(pat);
+                  if (m) { dec = m[1].toUpperCase(); break; }
+                }
+                // Fallback to substring
+                if (!dec) {
+                  if (raw.includes('BUY')) dec = 'BUY';
+                  else if (raw.includes('SELL')) dec = 'SELL';
+                  else if (raw.includes('HOLD')) dec = 'HOLD';
+                }
+                items[i].decision = dec;
+
+                // ── parse analyst letters from report JSON ──
+                const letters = [];
+                if (d.market_report) letters.push('M');
+                if (d.sentiment_report) letters.push('S');
+                if (d.news_report) letters.push('N');
+                if (d.fundamentals_report) letters.push('F');
+                items[i].analystsStr = letters.length ? letters.join(' ') : 'M S N F';
+              }
+            } catch(e) {}
+          }));
+
+          this.history.items = items.reverse();
+        } catch (e) {
+          this.showToast('error', 'Failed to load history: ' + e.message);
+        } finally {
+          this.history.loading = false;
+        }
+      },
+
+      filteredHistory() {
+        let items = this.history.items;
+        if (this.history.search) {
+          const q = this.history.search.toUpperCase();
+          items = items.filter(i => i.ticker.includes(q));
+        }
+        if (this.history.filter) {
+          const f = this.history.filter;
+          items = items.filter(i => i.decision.toLowerCase().includes(f));
+        }
+        return items;
+      },
+      historyPageItems() {
+        const filtered = this.filteredHistory();
+        const start = (this.history.page - 1) * this.history.perPage;
+        return filtered.slice(start, start + this.history.perPage);
+      },
+      totalPages() {
+        return Math.max(1, Math.ceil(this.filteredHistory().length / this.history.perPage));
+      },
+
+      // ══ Toasts ═════════════════════════════════════════
+      showToast(type, message) {
+        const id = ++this._toastId;
+        this.toasts.push({id, type, message});
+        setTimeout(() => this.removeToast(id), 5000);
+      },
+      removeToast(id) {
+        this.toasts = this.toasts.filter(t => t.id !== id);
+      },
+    };
+  }
+</script>
+
+</body>
+</html>

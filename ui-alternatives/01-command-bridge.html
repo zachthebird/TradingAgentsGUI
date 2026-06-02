@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Command Bridge — Trading Agents</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --panel: #111729;
+    --panel-2: #161e33;
+    --border: #1f2a44;
+    --text: #e8edf7;
+    --muted: #7a85a3;
+    --accent: #00e5b3;
+    --warn: #ffb547;
+    --bear: #ff5a6f;
+    --bull: #00e5b3;
+    --info: #6aa7ff;
+  }
+  body {
+    font-family: 'Inter', -apple-system, system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  .panel { background: var(--panel); border: 1px solid var(--border); }
+  .panel-2 { background: var(--panel-2); border: 1px solid var(--border); }
+  .glow-bull { box-shadow: 0 0 24px -8px rgba(0, 229, 179, 0.4); }
+  .glow-bear { box-shadow: 0 0 24px -8px rgba(255, 90, 111, 0.4); }
+  .ticker-row:hover { background: var(--panel-2); cursor: pointer; }
+  .ticker-row.active { background: linear-gradient(90deg, rgba(0,229,179,0.08), transparent); border-left: 3px solid var(--accent); }
+  .pulse-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 0 rgba(0,229,179,0.7);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(0,229,179,0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(0,229,179,0); }
+    100% { box-shadow: 0 0 0 0 rgba(0,229,179,0); }
+  }
+  .agent-msg { animation: slideIn 0.4s ease-out; }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .conviction-bar {
+    height: 4px; border-radius: 2px;
+    background: linear-gradient(90deg, var(--bear) 0%, var(--warn) 50%, var(--bull) 100%);
+    position: relative;
+  }
+  .conviction-marker {
+    position: absolute; top: -3px;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: white;
+    border: 2px solid var(--bg);
+    transform: translateX(-50%);
+  }
+  .signal-tile {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    transition: all 0.2s;
+  }
+  .signal-tile:hover { border-color: var(--accent); }
+  .nav-tab {
+    padding: 8px 16px; cursor: pointer;
+    border-bottom: 2px solid transparent;
+    color: var(--muted); transition: all 0.2s;
+  }
+  .nav-tab:hover { color: var(--text); }
+  .nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  .grid-bg {
+    background-image:
+      linear-gradient(rgba(31,42,68,0.5) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(31,42,68,0.5) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+  .data-num { font-family: 'JetBrains Mono', 'SF Mono', monospace; font-variant-numeric: tabular-nums; }
+  .badge-bear { background: rgba(255,90,111,0.15); color: var(--bear); border: 1px solid rgba(255,90,111,0.3); }
+  .badge-bull { background: rgba(0,229,179,0.15); color: var(--bull); border: 1px solid rgba(0,229,179,0.3); }
+  .badge-neutral { background: rgba(122,133,163,0.15); color: var(--muted); border: 1px solid rgba(122,133,163,0.3); }
+  .agent-avatar {
+    width: 32px; height: 32px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 12px;
+  }
+  .scan-line {
+    position: absolute; left: 0; right: 0; top: 0;
+    height: 2px; background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    animation: scan 3s linear infinite;
+  }
+  @keyframes scan {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(400px); }
+  }
+</style>
+</head>
+<body class="min-h-screen">
+
+<!-- TOP BAR -->
+<header class="panel border-b flex items-center px-4 py-2 gap-4">
+  <div class="flex items-center gap-2">
+    <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center font-bold text-slate-900">TA</div>
+    <div>
+      <div class="font-semibold text-sm">Trading Agents</div>
+      <div class="text-[10px] text-slate-400">Command Bridge</div>
+    </div>
+  </div>
+  <div class="flex items-center gap-2 ml-4">
+    <div class="pulse-dot"></div>
+    <span class="text-xs text-slate-400">LIVE · 4 agents online</span>
+  </div>
+  <div class="flex-1 max-w-md mx-4">
+    <div class="relative">
+      <input type="text" placeholder="Search ticker, run analysis, ask agents... ⌘K"
+        class="w-full panel-2 rounded-lg pl-9 pr-4 py-2 text-sm border border-transparent focus:border-emerald-400 outline-none"/>
+      <i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-slate-500"></i>
+    </div>
+  </div>
+  <div class="flex items-center gap-3 text-xs">
+    <div class="data-num"><span class="text-slate-400">SPY</span> <span class="text-rose-400">5418.22 -0.84%</span></div>
+    <div class="data-num"><span class="text-slate-400">VIX</span> <span class="text-amber-400">22.4</span></div>
+    <div class="data-num"><span class="text-slate-400">DXY</span> <span class="text-emerald-400">104.21</span></div>
+  </div>
+  <button class="px-3 py-1.5 bg-emerald-500 text-slate-900 rounded-lg text-xs font-semibold flex items-center gap-1.5">
+    <i data-lucide="zap" class="w-3.5 h-3.5"></i> New Analysis
+  </button>
+</header>
+
+<div class="flex h-[calc(100vh-57px)]">
+
+  <!-- LEFT: WATCHLIST -->
+  <aside class="w-72 panel border-r overflow-y-auto">
+    <div class="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+      <div class="text-xs font-semibold uppercase tracking-wider text-slate-400">Watchlist</div>
+      <div class="flex gap-1">
+        <button class="text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400">4</button>
+      </div>
+    </div>
+
+    <div class="px-3 py-2 border-b border-slate-800 flex gap-1">
+      <button class="text-[10px] px-2 py-1 rounded bg-emerald-500/20 text-emerald-400 font-semibold">ALL</button>
+      <button class="text-[10px] px-2 py-1 rounded text-slate-400">BUY</button>
+      <button class="text-[10px] px-2 py-1 rounded text-slate-400">SELL</button>
+      <button class="text-[10px] px-2 py-1 rounded text-slate-400">HOLD</button>
+    </div>
+
+    <!-- Active ticker -->
+    <div class="ticker-row active px-4 py-3 border-b border-slate-800">
+      <div class="flex items-center justify-between mb-1">
+        <div class="flex items-center gap-2">
+          <span class="font-bold text-sm">AMD</span>
+          <span class="badge-bear text-[10px] px-1.5 py-0.5 rounded font-semibold">SELL</span>
+        </div>
+        <span class="data-num text-sm text-rose-400">$449.59</span>
+      </div>
+      <div class="flex items-center justify-between text-[10px] text-slate-500 mb-2">
+        <span>Advanced Micro Devices</span>
+        <span class="data-num text-rose-400">-2.1%</span>
+      </div>
+      <!-- mini sparkline -->
+      <svg viewBox="0 0 200 30" class="w-full h-6">
+        <path d="M0,25 L20,22 L40,18 L60,15 L80,10 L100,8 L120,5 L140,3 L160,6 L180,12 L200,15"
+          stroke="#ff5a6f" stroke-width="1.5" fill="none"/>
+        <path d="M0,25 L20,22 L40,18 L60,15 L80,10 L100,8 L120,5 L140,3 L160,6 L180,12 L200,15 L200,30 L0,30 Z"
+          fill="url(#g1)" opacity="0.3"/>
+        <defs><linearGradient id="g1" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0" stop-color="#ff5a6f"/><stop offset="1" stop-color="#ff5a6f" stop-opacity="0"/>
+        </linearGradient></defs>
+      </svg>
+      <div class="flex items-center justify-between mt-1">
+        <div class="flex gap-0.5">
+          <span class="text-[9px] w-4 h-4 rounded bg-rose-500/20 text-rose-400 flex items-center justify-center" title="Market">M</span>
+          <span class="text-[9px] w-4 h-4 rounded bg-rose-500/20 text-rose-400 flex items-center justify-center" title="Sentiment">S</span>
+          <span class="text-[9px] w-4 h-4 rounded bg-amber-500/20 text-amber-400 flex items-center justify-center" title="News">N</span>
+          <span class="text-[9px] w-4 h-4 rounded bg-emerald-500/20 text-emerald-400 flex items-center justify-center" title="Fundamentals">F</span>
+        </div>
+        <span class="text-[10px] text-slate-500">2026-05-22</span>
+      </div>
+    </div>
+
+    <div class="ticker-row px-4 py-3 border-b border-slate-800">
+      <div class="flex items-center justify-between mb-1">
+        <div class="flex items-center gap-2">
+          <span class="font-bold text-sm">SPY</span>
+          <span class="badge-bear text-[10px] px-1.5 py-0.5 rounded font-semibold">SELL</span>
+        </div>
+        <span class="data-num text-sm">$541.82</span>
+      </div>
+      <div class="flex items-center justify-between text-[10px] text-slate-500 mb-2">
+        <span>S&P 500 ETF</span>
+        <span class="data-num text-rose-400">-0.84%</span>
+      </div>
+      <svg viewBox="0 0 200 30" class="w-full h-6">
+        <path d="M0,10 L20,12 L40,11 L60,14 L80,13 L100,17 L120,16 L140,20 L160,18 L180,22 L200,20"
+          stroke="#ff5a6f" stroke-width="1.5" fill="none"/>
+      </svg>
+    </div>
+
+    <div class="ticker-row px-4 py-3 border-b border-slate-800">
+      <div class="flex items-center justify-between mb-1">
+        <div class="flex items-center gap-2">
+          <span class="font-bold text-sm">RGTI</span>
+          <span class="badge-bear text-[10px] px-1.5 py-0.5 rounded font-semibold">SELL</span>
+        </div>
+        <span class="data-num text-sm">$28.41</span>
+      </div>
+      <div class="flex items-center justify-between text-[10px] text-slate-500 mb-2">
+        <span>Rigetti Computing</span>
+        <span class="data-num text-rose-400">-4.7%</span>
+      </div>
+      <svg viewBox="0 0 200 30" class="w-full h-6">
+        <path d="M0,5 L20,8 L40,12 L60,10 L80,15 L100,13 L120,18 L140,22 L160,20 L180,25 L200,23"
+          stroke="#ff5a6f" stroke-width="1.5" fill="none"/>
+      </svg>
+    </div>
+
+    <div class="ticker-row px-4 py-3 border-b border-slate-800">
+      <div class="flex items-center justify-between mb-1">
+        <div class="flex items-center gap-2">
+          <span class="font-bold text-sm">PLTR</span>
+          <span class="badge-bear text-[10px] px-1.5 py-0.5 rounded font-semibold">SELL</span>
+        </div>
+        <span class="data-num text-sm">$132.04</span>
+      </div>
+      <div class="flex items-center justify-between text-[10px] text-slate-500 mb-2">
+        <span>Palantir Technologies</span>
+        <span class="data-num text-rose-400">-1.2%</span>
+      </div>
+      <svg viewBox="0 0 200 30" class="w-full h-6">
+        <path d="M0,15 L20,12 L40,10 L60,14 L80,11 L100,15 L120,13 L140,17 L160,16 L180,20 L200,18"
+          stroke="#ff5a6f" stroke-width="1.5" fill="none"/>
+      </svg>
+    </div>
+
+    <button class="w-full px-4 py-3 text-xs text-slate-400 hover:text-emerald-400 flex items-center justify-center gap-2 border-b border-slate-800">
+      <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add ticker
+    </button>
+
+    <div class="px-4 py-3 mt-4">
+      <div class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Recent Signals</div>
+      <div class="space-y-2">
+        <div class="text-[10px] panel-2 rounded p-2">
+          <div class="flex justify-between"><span class="text-amber-400">⚠ MACD Crossover</span><span class="text-slate-500">2h ago</span></div>
+          <div class="text-slate-500">AMD bearish divergence confirmed</div>
+        </div>
+        <div class="text-[10px] panel-2 rounded p-2">
+          <div class="flex justify-between"><span class="text-rose-400">↓ RSI Decline</span><span class="text-slate-500">5h ago</span></div>
+          <div class="text-slate-500">PLTR momentum waning</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- CENTER: MAIN ANALYSIS -->
+  <main class="flex-1 overflow-y-auto">
+    <!-- HERO HEADER -->
+    <div class="panel border-b px-6 py-4">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-4">
+          <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center font-bold text-2xl">A</div>
+          <div>
+            <div class="flex items-center gap-3">
+              <h1 class="text-2xl font-bold">AMD</h1>
+              <span class="text-slate-400 text-sm">Advanced Micro Devices</span>
+              <span class="badge-bear text-xs px-2 py-1 rounded font-bold">SELL · CONVICTION 78%</span>
+            </div>
+            <div class="text-xs text-slate-500 mt-0.5">Last analyzed May 22, 2026 · 4 agents reached consensus in 1m 47s</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button class="px-3 py-1.5 panel-2 rounded text-xs flex items-center gap-1.5"><i data-lucide="refresh-cw" class="w-3 h-3"></i> Re-run</button>
+          <button class="px-3 py-1.5 panel-2 rounded text-xs flex items-center gap-1.5"><i data-lucide="bell" class="w-3 h-3"></i> Alert</button>
+          <button class="px-3 py-1.5 panel-2 rounded text-xs flex items-center gap-1.5"><i data-lucide="download" class="w-3 h-3"></i> Export</button>
+        </div>
+      </div>
+
+      <!-- KEY METRICS -->
+      <div class="grid grid-cols-6 gap-2">
+        <div class="signal-tile rounded-lg p-3">
+          <div class="text-[10px] text-slate-500 uppercase">Price</div>
+          <div class="text-lg font-bold data-num">$449.59</div>
+          <div class="text-xs text-rose-400 data-num">-2.1% today</div>
+        </div>
+        <div class="signal-tile rounded-lg p-3">
+          <div class="text-[10px] text-slate-500 uppercase">3M Return</div>
+          <div class="text-lg font-bold data-num text-emerald-400">+125%</div>
+          <div class="text-xs text-slate-500">$200 → $449</div>
+        </div>
+        <div class="signal-tile rounded-lg p-3">
+          <div class="text-[10px] text-slate-500 uppercase">vs 50 SMA</div>
+          <div class="text-lg font-bold data-num text-amber-400">+51%</div>
+          <div class="text-xs text-slate-500">extended</div>
+        </div>
+        <div class="signal-tile rounded-lg p-3">
+          <div class="text-[10px] text-slate-500 uppercase">RSI (14)</div>
+          <div class="text-lg font-bold data-num">69.9</div>
+          <div class="text-xs text-amber-400">near overbought</div>
+        </div>
+        <div class="signal-tile rounded-lg p-3">
+          <div class="text-[10px] text-slate-500 uppercase">ATR (14)</div>
+          <div class="text-lg font-bold data-num">24.7</div>
+          <div class="text-xs text-rose-400">2.4× elevated</div>
+        </div>
+        <div class="signal-tile rounded-lg p-3">
+          <div class="text-[10px] text-slate-500 uppercase">Risk</div>
+          <div class="text-lg font-bold data-num text-rose-400">HIGH</div>
+          <div class="text-xs text-slate-500">mean-reversion</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TABS -->
+    <div class="panel border-b px-6 flex items-center gap-1">
+      <div class="nav-tab active">📊 Market</div>
+      <div class="nav-tab">💬 Sentiment</div>
+      <div class="nav-tab">📰 News</div>
+      <div class="nav-tab">📈 Fundamentals</div>
+      <div class="nav-tab">🎯 Trading Plan</div>
+      <div class="nav-tab">⚖️ Debate</div>
+      <div class="nav-tab">🛡️ Risk</div>
+      <div class="nav-tab">✓ Decision</div>
+    </div>
+
+    <!-- CONTENT GRID -->
+    <div class="p-6 space-y-4">
+
+      <!-- CHART + CONVICTION -->
+      <div class="grid grid-cols-3 gap-4">
+        <div class="col-span-2 panel rounded-xl p-4 relative overflow-hidden">
+          <div class="flex items-center justify-between mb-3">
+            <div class="font-semibold text-sm">Price Action · 90D</div>
+            <div class="flex gap-1 text-[10px]">
+              <button class="px-2 py-0.5 rounded panel-2">1D</button>
+              <button class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400">90D</button>
+              <button class="px-2 py-0.5 rounded panel-2">1Y</button>
+              <button class="px-2 py-0.5 rounded panel-2">5Y</button>
+            </div>
+          </div>
+          <canvas id="priceChart" height="120"></canvas>
+        </div>
+
+        <div class="panel rounded-xl p-4">
+          <div class="font-semibold text-sm mb-3">Agent Conviction</div>
+
+          <div class="space-y-3">
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="flex items-center gap-1.5"><span class="agent-avatar bg-rose-500/20 text-rose-400" style="width:20px;height:20px;font-size:9px">M</span> Market</span>
+                <span class="text-rose-400 font-semibold">SELL · 82%</span>
+              </div>
+              <div class="conviction-bar"><div class="conviction-marker" style="left: 14%;"></div></div>
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="flex items-center gap-1.5"><span class="agent-avatar bg-rose-500/20 text-rose-400" style="width:20px;height:20px;font-size:9px">S</span> Sentiment</span>
+                <span class="text-rose-400 font-semibold">SELL · 71%</span>
+              </div>
+              <div class="conviction-bar"><div class="conviction-marker" style="left: 22%;"></div></div>
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="flex items-center gap-1.5"><span class="agent-avatar bg-amber-500/20 text-amber-400" style="width:20px;height:20px;font-size:9px">N</span> News</span>
+                <span class="text-amber-400 font-semibold">HOLD · 54%</span>
+              </div>
+              <div class="conviction-bar"><div class="conviction-marker" style="left: 46%;"></div></div>
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="flex items-center gap-1.5"><span class="agent-avatar bg-emerald-500/20 text-emerald-400" style="width:20px;height:20px;font-size:9px">F</span> Fundamentals</span>
+                <span class="text-emerald-400 font-semibold">BUY · 64%</span>
+              </div>
+              <div class="conviction-bar"><div class="conviction-marker" style="left: 82%;"></div></div>
+            </div>
+          </div>
+
+          <div class="mt-4 pt-4 border-t border-slate-800">
+            <div class="text-[10px] text-slate-500 mb-1">CONSENSUS</div>
+            <div class="flex items-end gap-2">
+              <div class="text-2xl font-bold text-rose-400">SELL</div>
+              <div class="text-xs text-slate-400 mb-1">3 of 4 agents · 78% weighted</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- INDICATOR DEEP DIVE -->
+      <div class="grid grid-cols-3 gap-4">
+        <div class="panel rounded-xl p-4">
+          <div class="flex items-center justify-between mb-2">
+            <div class="text-xs font-semibold uppercase text-slate-400">Moving Averages</div>
+            <span class="badge-bear text-[10px] px-2 py-0.5 rounded">Bearish</span>
+          </div>
+          <div class="space-y-2">
+            <div class="flex justify-between"><span class="text-xs text-slate-400">50 SMA</span><span class="data-num text-sm">$297.79</span></div>
+            <div class="flex justify-between"><span class="text-xs text-slate-400">10 EMA</span><span class="data-num text-sm">$428.17</span></div>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-3 leading-relaxed">Price sits <span class="text-amber-400 font-semibold">+51% above 50 SMA</span> — historically unsustainable. Mean-reversion risk elevated.</p>
+        </div>
+
+        <div class="panel rounded-xl p-4">
+          <div class="flex items-center justify-between mb-2">
+            <div class="text-xs font-semibold uppercase text-slate-400">MACD</div>
+            <span class="badge-bear text-[10px] px-2 py-0.5 rounded">Crossover</span>
+          </div>
+          <div class="space-y-2">
+            <div class="flex justify-between"><span class="text-xs text-slate-400">MACD Line</span><span class="data-num text-sm text-rose-400">+42.93 ↓</span></div>
+            <div class="flex justify-between"><span class="text-xs text-slate-400">Histogram</span><span class="data-num text-sm text-rose-400">-2.29</span></div>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-3 leading-relaxed">Bearish divergence: <span class="text-rose-400 font-semibold">5 consecutive declines</span> while price climbed. Classic warning signal.</p>
+        </div>
+
+        <div class="panel rounded-xl p-4">
+          <div class="flex items-center justify-between mb-2">
+            <div class="text-xs font-semibold uppercase text-slate-400">RSI / Bollinger</div>
+            <span class="badge-bear text-[10px] px-2 py-0.5 rounded">Stretched</span>
+          </div>
+          <div class="space-y-2">
+            <div class="flex justify-between"><span class="text-xs text-slate-400">RSI (14)</span><span class="data-num text-sm text-amber-400">69.90</span></div>
+            <div class="flex justify-between"><span class="text-xs text-slate-400">Band Width</span><span class="data-num text-sm">~$98</span></div>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-3 leading-relaxed">RSI peaks declining since April. Bollinger bands extreme — <span class="text-amber-400 font-semibold">elevated volatility persisting</span>.</p>
+        </div>
+      </div>
+
+      <!-- SYNTHESIS -->
+      <div class="panel rounded-xl p-5 relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-64 h-64 bg-rose-500/5 rounded-full blur-3xl"></div>
+        <div class="flex items-center gap-2 mb-3">
+          <i data-lucide="brain" class="w-4 h-4 text-emerald-400"></i>
+          <div class="text-xs font-semibold uppercase tracking-wider text-slate-400">Synthesis</div>
+        </div>
+        <h3 class="font-bold text-lg mb-2">Parabolic price action with deteriorating internals</h3>
+        <p class="text-sm text-slate-300 leading-relaxed mb-3">
+          AMD rallied <span class="text-emerald-400 font-semibold">+125% in 3.5 months</span>, but momentum indicators are flashing warnings. The MACD bearish divergence,
+          declining RSI peaks, and 51% extension above the 50 SMA collectively suggest the rate of ascent is
+          decelerating. <span class="text-amber-400 font-semibold">A meaningful pullback or consolidation is likely.</span>
+        </p>
+        <div class="grid grid-cols-3 gap-3 mt-4">
+          <div class="signal-tile rounded p-3">
+            <div class="text-[10px] text-slate-500 uppercase mb-1">Entry</div>
+            <div class="text-sm font-bold data-num text-rose-400">$449 short</div>
+            <div class="text-[10px] text-slate-500">on confirmation</div>
+          </div>
+          <div class="signal-tile rounded p-3">
+            <div class="text-[10px] text-slate-500 uppercase mb-1">Stop</div>
+            <div class="text-sm font-bold data-num">$498 (2× ATR)</div>
+            <div class="text-[10px] text-slate-500">~11% risk</div>
+          </div>
+          <div class="signal-tile rounded p-3">
+            <div class="text-[10px] text-slate-500 uppercase mb-1">Target</div>
+            <div class="text-sm font-bold data-num text-emerald-400">$380–400</div>
+            <div class="text-[10px] text-slate-500">10 EMA retest</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- RIGHT: AGENT DEBATE -->
+  <aside class="w-96 panel border-l overflow-y-auto">
+    <div class="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <div class="text-xs font-semibold uppercase tracking-wider text-slate-400">Agent Debate</div>
+        <span class="text-[10px] panel-2 rounded px-1.5 py-0.5">round 2/2</span>
+      </div>
+      <div class="pulse-dot"></div>
+    </div>
+
+    <div class="p-3 space-y-3">
+
+      <!-- Bull researcher -->
+      <div class="agent-msg flex gap-2">
+        <div class="agent-avatar bg-emerald-500/20 text-emerald-400 flex-shrink-0">🐂</div>
+        <div class="flex-1">
+          <div class="flex items-center justify-between">
+            <div class="text-xs font-semibold text-emerald-400">Bull Researcher</div>
+            <div class="text-[10px] text-slate-500">14:22:18</div>
+          </div>
+          <div class="panel-2 rounded-lg p-2 mt-1 text-[12px] leading-relaxed">
+            AMD's data center revenue grew 122% YoY. Mi300 ramp is accelerating ahead of guidance. Pullbacks in parabolic moves are often shallow when fundamentals lead.
+          </div>
+        </div>
+      </div>
+
+      <!-- Bear researcher -->
+      <div class="agent-msg flex gap-2">
+        <div class="agent-avatar bg-rose-500/20 text-rose-400 flex-shrink-0">🐻</div>
+        <div class="flex-1">
+          <div class="flex items-center justify-between">
+            <div class="text-xs font-semibold text-rose-400">Bear Researcher</div>
+            <div class="text-[10px] text-slate-500">14:22:31</div>
+          </div>
+          <div class="panel-2 rounded-lg p-2 mt-1 text-[12px] leading-relaxed">
+            Strong fundamentals don't override mean-reversion math. +51% above 50 SMA happens before -20% pullbacks, not after. MACD divergence + RSI weakness = textbook exhaustion.
+          </div>
+        </div>
+      </div>
+
+      <!-- Bull rebuttal -->
+      <div class="agent-msg flex gap-2">
+        <div class="agent-avatar bg-emerald-500/20 text-emerald-400 flex-shrink-0">🐂</div>
+        <div class="flex-1">
+          <div class="flex items-center justify-between">
+            <div class="text-xs font-semibold text-emerald-400">Bull Researcher</div>
+            <div class="text-[10px] text-slate-500">14:22:49</div>
+          </div>
+          <div class="panel-2 rounded-lg p-2 mt-1 text-[12px] leading-relaxed">
+            Granted. But a tactical SELL ≠ a thesis change. Suggest hedging existing longs with $440 puts rather than fully exiting. Catalyst risk: AI capex guidance from MSFT/META next week.
+          </div>
+        </div>
+      </div>
+
+      <!-- Risk manager -->
+      <div class="agent-msg flex gap-2">
+        <div class="agent-avatar bg-amber-500/20 text-amber-400 flex-shrink-0">🛡️</div>
+        <div class="flex-1">
+          <div class="flex items-center justify-between">
+            <div class="text-xs font-semibold text-amber-400">Risk Manager</div>
+            <div class="text-[10px] text-slate-500">14:23:02</div>
+          </div>
+          <div class="panel-2 rounded-lg p-2 mt-1 text-[12px] leading-relaxed">
+            With ATR at 24.7, a 2× stop is $50 wide. Position size should not exceed <span class="text-amber-400 font-semibold">0.8% account risk</span>. Tighter stops will be triggered by normal noise — accept the wide stop or skip the trade.
+          </div>
+        </div>
+      </div>
+
+      <!-- Trader -->
+      <div class="agent-msg flex gap-2">
+        <div class="agent-avatar bg-cyan-500/20 text-cyan-400 flex-shrink-0">🎯</div>
+        <div class="flex-1">
+          <div class="flex items-center justify-between">
+            <div class="text-xs font-semibold text-cyan-400">Trader</div>
+            <div class="text-[10px] text-slate-500">14:23:15</div>
+          </div>
+          <div class="panel-2 rounded-lg p-2 mt-1 text-[12px] leading-relaxed">
+            Resolution: <span class="font-semibold text-rose-400">SELL bias</span> with hedge structure. Sell 50% existing position. For shorts, wait for break below $428 (10 EMA) before entering. Target $380–400 over 2–4 weeks.
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="p-3 border-t border-slate-800">
+      <div class="panel-2 rounded-lg p-2 flex items-center gap-2">
+        <i data-lucide="message-circle" class="w-4 h-4 text-slate-500"></i>
+        <input type="text" placeholder="Ask the agents anything..." class="flex-1 bg-transparent text-xs outline-none"/>
+        <button class="text-emerald-400"><i data-lucide="send" class="w-3.5 h-3.5"></i></button>
+      </div>
+    </div>
+  </aside>
+
+</div>
+
+<script>
+  lucide.createIcons();
+
+  const ctx = document.getElementById('priceChart');
+  const labels = Array.from({length: 90}, (_, i) => i);
+  const baseData = labels.map((i) => {
+    const start = 200;
+    const trend = start + (i / 89) * 250 + Math.sin(i / 6) * 8 + (i > 75 ? -10 : 0);
+    return Math.round(trend * 100) / 100;
+  });
+  const sma50 = labels.map((i) => {
+    const start = 195;
+    return Math.round((start + (i / 89) * 105) * 100) / 100;
+  });
+
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'AMD',
+          data: baseData,
+          borderColor: '#00e5b3',
+          backgroundColor: 'rgba(0,229,179,0.08)',
+          borderWidth: 2,
+          fill: true,
+          tension: 0.3,
+          pointRadius: 0,
+        },
+        {
+          label: '50 SMA',
+          data: sma50,
+          borderColor: '#ffb547',
+          borderWidth: 1.5,
+          borderDash: [4, 4],
+          fill: false,
+          tension: 0.4,
+          pointRadius: 0,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, labels: { color: '#7a85a3', font: { size: 10 }, boxWidth: 8 } },
+        tooltip: { mode: 'index', intersect: false }
+      },
+      scales: {
+        x: { display: false, grid: { display: false } },
+        y: {
+          position: 'right',
+          grid: { color: 'rgba(31,42,68,0.4)' },
+          ticks: { color: '#7a85a3', font: { size: 10, family: 'monospace' } }
+        }
+      },
+      interaction: { mode: 'index', intersect: false }
+    }
+  });
+</script>
+
+</body>
+</html>

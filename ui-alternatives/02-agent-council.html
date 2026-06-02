@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Agent Council — Trading Agents</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:wght@500;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #faf7f2;
+    --cream: #f3ede2;
+    --ink: #1a1a1a;
+    --ink-2: #3a3a3a;
+    --muted: #8a8478;
+    --rust: #c75e3e;
+    --sage: #6b8e6b;
+    --gold: #d4a64a;
+    --berry: #a93f5b;
+    --slate: #4a5d6e;
+    --border: #e8e1d3;
+  }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+  }
+  .font-serif { font-family: 'Fraunces', Georgia, serif; }
+  .font-mono { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; }
+
+  .paper-card {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03);
+  }
+
+  .agent-bubble {
+    border-radius: 18px;
+    padding: 14px 18px;
+    max-width: 80%;
+    line-height: 1.55;
+    animation: pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes pop {
+    0% { opacity: 0; transform: scale(0.95) translateY(8px); }
+    100% { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  .avatar {
+    width: 44px; height: 44px;
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+
+  .vote-pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 10px; border-radius: 999px;
+    font-size: 11px; font-weight: 600;
+  }
+  .vote-bear { background: rgba(169,63,91,0.1); color: var(--berry); }
+  .vote-bull { background: rgba(107,142,107,0.12); color: var(--sage); }
+  .vote-hold { background: rgba(212,166,74,0.12); color: var(--gold); }
+
+  .typing-dots span {
+    display: inline-block;
+    width: 6px; height: 6px;
+    background: var(--muted); border-radius: 50%;
+    margin: 0 1px;
+    animation: dot 1.4s infinite ease-in-out;
+  }
+  .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes dot {
+    0%, 80%, 100% { opacity: 0.3; transform: translateY(0); }
+    40% { opacity: 1; transform: translateY(-3px); }
+  }
+
+  .ticker-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 999px;
+    background: var(--ink); color: var(--paper);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 600;
+  }
+
+  .stat-card {
+    background: var(--cream);
+    border-radius: 12px;
+    padding: 12px;
+  }
+
+  .nav-pill {
+    padding: 6px 14px; border-radius: 999px;
+    font-size: 13px; font-weight: 500;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .nav-pill:hover { background: var(--cream); color: var(--ink); }
+  .nav-pill.active { background: var(--ink); color: var(--paper); }
+
+  .verdict-card {
+    background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+    color: var(--paper);
+    border-radius: 24px;
+  }
+
+  .quote-mark {
+    font-family: 'Fraunces', serif;
+    font-size: 80px;
+    line-height: 0.5;
+    color: var(--border);
+    position: absolute;
+    top: 24px; left: 18px;
+  }
+
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .reaction {
+    display: inline-flex; align-items: center; gap: 3px;
+    padding: 2px 8px; border-radius: 999px;
+    background: var(--cream);
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .reaction:hover { background: var(--border); }
+
+  .progress-ring {
+    transform: rotate(-90deg);
+  }
+</style>
+</head>
+<body class="min-h-screen">
+
+<!-- HEADER -->
+<header class="border-b border-stone-200 bg-white/80 backdrop-blur sticky top-0 z-20">
+  <div class="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-rose-500 flex items-center justify-center text-white font-bold">⚖</div>
+      <div>
+        <div class="font-serif text-lg font-bold leading-none">The Council</div>
+        <div class="text-[10px] text-stone-500">your trading agents, in conversation</div>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-1">
+      <button class="nav-pill active">Today</button>
+      <button class="nav-pill">History</button>
+      <button class="nav-pill">Watchlist</button>
+      <button class="nav-pill">Settings</button>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <div class="text-right">
+        <div class="text-[10px] text-stone-500">Signed in</div>
+        <div class="text-xs font-semibold">Zach</div>
+      </div>
+      <div class="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center text-white font-bold text-sm">Z</div>
+    </div>
+  </div>
+</header>
+
+<div class="max-w-7xl mx-auto px-6 py-6 grid grid-cols-12 gap-6">
+
+  <!-- LEFT SIDEBAR: SESSIONS -->
+  <aside class="col-span-3">
+    <div class="paper-card p-4 sticky top-24">
+      <button class="w-full bg-stone-900 text-white rounded-xl py-3 text-sm font-semibold mb-4 flex items-center justify-center gap-2 hover:bg-stone-800">
+        <i data-lucide="sparkles" class="w-4 h-4"></i>
+        Start new analysis
+      </button>
+
+      <div class="text-[10px] uppercase tracking-wider text-stone-400 font-semibold mb-2 px-2">Recent sessions</div>
+
+      <div class="space-y-1">
+        <div class="rounded-lg p-3 bg-stone-100 border-l-2 border-stone-900 cursor-pointer">
+          <div class="flex items-center justify-between mb-1">
+            <span class="ticker-pill">AMD</span>
+            <span class="vote-pill vote-bear">SELL</span>
+          </div>
+          <div class="text-xs text-stone-500 mt-1">"The council reached consensus..."</div>
+          <div class="text-[10px] text-stone-400 mt-1">Today · 2:23pm</div>
+        </div>
+
+        <div class="rounded-lg p-3 hover:bg-stone-50 cursor-pointer">
+          <div class="flex items-center justify-between mb-1">
+            <span class="ticker-pill">SPY</span>
+            <span class="vote-pill vote-bear">SELL</span>
+          </div>
+          <div class="text-xs text-stone-500 mt-1">Macro headwinds discussed</div>
+          <div class="text-[10px] text-stone-400 mt-1">Today · 11:04am</div>
+        </div>
+
+        <div class="rounded-lg p-3 hover:bg-stone-50 cursor-pointer">
+          <div class="flex items-center justify-between mb-1">
+            <span class="ticker-pill">RGTI</span>
+            <span class="vote-pill vote-bear">SELL</span>
+          </div>
+          <div class="text-xs text-stone-500 mt-1">Speculative valuation</div>
+          <div class="text-[10px] text-stone-400 mt-1">Today · 9:42am</div>
+        </div>
+
+        <div class="rounded-lg p-3 hover:bg-stone-50 cursor-pointer">
+          <div class="flex items-center justify-between mb-1">
+            <span class="ticker-pill">PLTR</span>
+            <span class="vote-pill vote-bear">SELL</span>
+          </div>
+          <div class="text-xs text-stone-500 mt-1">Momentum waning</div>
+          <div class="text-[10px] text-stone-400 mt-1">Yesterday</div>
+        </div>
+      </div>
+
+      <div class="mt-6 pt-4 border-t border-stone-200">
+        <div class="text-[10px] uppercase tracking-wider text-stone-400 font-semibold mb-3 px-2">Your council</div>
+        <div class="space-y-2">
+          <div class="flex items-center gap-2 px-2">
+            <div class="avatar" style="background:#fef3c7;width:28px;height:28px;font-size:14px;">📊</div>
+            <div>
+              <div class="text-xs font-semibold">Mira</div>
+              <div class="text-[10px] text-stone-500">Market analyst</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 px-2">
+            <div class="avatar" style="background:#dbeafe;width:28px;height:28px;font-size:14px;">💬</div>
+            <div>
+              <div class="text-xs font-semibold">Sam</div>
+              <div class="text-[10px] text-stone-500">Sentiment reader</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 px-2">
+            <div class="avatar" style="background:#fce7f3;width:28px;height:28px;font-size:14px;">📰</div>
+            <div>
+              <div class="text-xs font-semibold">Nora</div>
+              <div class="text-[10px] text-stone-500">News scout</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 px-2">
+            <div class="avatar" style="background:#d1fae5;width:28px;height:28px;font-size:14px;">📈</div>
+            <div>
+              <div class="text-xs font-semibold">Finn</div>
+              <div class="text-[10px] text-stone-500">Fundamentals</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- CENTER: CONVERSATION -->
+  <main class="col-span-6 space-y-4">
+
+    <!-- Session header -->
+    <div class="paper-card p-5">
+      <div class="flex items-center gap-3 mb-3">
+        <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center text-white font-bold text-xl">A</div>
+        <div class="flex-1">
+          <div class="flex items-center gap-2">
+            <h1 class="font-serif text-2xl font-bold">AMD</h1>
+            <span class="text-stone-500 text-sm">Advanced Micro Devices</span>
+          </div>
+          <div class="text-xs text-stone-500">May 22, 2026 · Close $449.59 · 4 agents convened</div>
+        </div>
+        <div class="text-right">
+          <div class="text-[10px] uppercase tracking-wider text-stone-400">Final verdict</div>
+          <div class="vote-pill vote-bear text-base px-3 py-1 mt-1">SELL · 78% conviction</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- User opening message -->
+    <div class="flex justify-end">
+      <div class="agent-bubble bg-stone-900 text-stone-50">
+        <div class="text-sm">What do you all think about AMD right now? I'm long from $320 and wondering if I should trim.</div>
+      </div>
+    </div>
+
+    <!-- Mira: Market Analyst -->
+    <div class="flex gap-3">
+      <div class="avatar" style="background:#fef3c7;">📊</div>
+      <div class="flex-1">
+        <div class="flex items-center gap-2 mb-1">
+          <span class="font-semibold text-sm">Mira</span>
+          <span class="text-[10px] text-stone-500">Market analyst</span>
+          <span class="vote-pill vote-bear">SELL · 82%</span>
+        </div>
+        <div class="agent-bubble" style="background:#fef9e7;">
+          <div class="text-sm">
+            Zach — the chart's screaming "exhausted." I want to walk you through three things I'm seeing:
+          </div>
+          <div class="mt-3 grid grid-cols-3 gap-2">
+            <div class="stat-card" style="background:white;">
+              <div class="text-[9px] uppercase text-stone-500">vs 50 SMA</div>
+              <div class="font-mono text-lg font-bold text-amber-600">+51%</div>
+              <div class="text-[10px] text-stone-500">historically unsustainable</div>
+            </div>
+            <div class="stat-card" style="background:white;">
+              <div class="text-[9px] uppercase text-stone-500">MACD signal</div>
+              <div class="font-mono text-lg font-bold text-rose-600">Bearish ✕</div>
+              <div class="text-[10px] text-stone-500">5-day divergence</div>
+            </div>
+            <div class="stat-card" style="background:white;">
+              <div class="text-[9px] uppercase text-stone-500">RSI peaks</div>
+              <div class="font-mono text-lg font-bold text-amber-600">↓ declining</div>
+              <div class="text-[10px] text-stone-500">88 → 81 → 70</div>
+            </div>
+          </div>
+          <div class="text-sm mt-3">
+            Translation: price is making new highs but every momentum gauge is making lower highs. That's the textbook setup for a pullback. The +125% rally since February hasn't been challenged yet — overdue.
+          </div>
+        </div>
+        <div class="flex gap-1 mt-2">
+          <span class="reaction">👍 3</span>
+          <span class="reaction">💡 1</span>
+          <span class="reaction">↳ Ask follow-up</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Finn: Fundamentals (dissenting voice) -->
+    <div class="flex gap-3">
+      <div class="avatar" style="background:#d1fae5;">📈</div>
+      <div class="flex-1">
+        <div class="flex items-center gap-2 mb-1">
+          <span class="font-semibold text-sm">Finn</span>
+          <span class="text-[10px] text-stone-500">Fundamentals</span>
+          <span class="vote-pill vote-bull">BUY · 64%</span>
+          <span class="text-[10px] text-stone-400 italic">— pushing back</span>
+        </div>
+        <div class="agent-bubble" style="background:#ecfdf5;">
+          <div class="text-sm">
+            Respectfully disagreeing with Mira. The technicals are stretched, sure — but <span class="font-semibold">the underlying business is firing on all cylinders.</span>
+          </div>
+          <div class="mt-3 paper-card p-3" style="box-shadow:none;border-color:#d1fae5;">
+            <div class="text-[10px] uppercase tracking-wider text-stone-500 mb-2 font-semibold">Why I'd hold (or buy dips)</div>
+            <ul class="text-sm space-y-1.5 text-stone-700">
+              <li>• Data center revenue <span class="font-mono font-semibold">+122% YoY</span></li>
+              <li>• MI300 ramp running ahead of company guidance</li>
+              <li>• Forward P/E now <span class="font-mono font-semibold">28×</span> — actually contracted from 42× last quarter</li>
+              <li>• MSFT & META capex guides next week could re-rate the entire AI cohort</li>
+            </ul>
+          </div>
+          <div class="text-sm mt-3">
+            My view: don't sell the franchise. Trim 25–30% to lock in gains, ride the rest.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sam: Sentiment -->
+    <div class="flex gap-3">
+      <div class="avatar" style="background:#dbeafe;">💬</div>
+      <div class="flex-1">
+        <div class="flex items-center gap-2 mb-1">
+          <span class="font-semibold text-sm">Sam</span>
+          <span class="text-[10px] text-stone-500">Sentiment reader</span>
+          <span class="vote-pill vote-bear">SELL · 71%</span>
+        </div>
+        <div class="agent-bubble" style="background:#eff6ff;">
+          <div class="text-sm mb-3">
+            Quick sentiment pulse — this is where I get worried. <span class="font-semibold">Retail is euphoric.</span> That's usually contrarian.
+          </div>
+
+          <!-- Inline sentiment chart -->
+          <div class="paper-card p-3" style="box-shadow:none;border-color:#dbeafe;">
+            <div class="flex items-center justify-between mb-2">
+              <div class="text-xs font-semibold">Reddit mentions · 30d</div>
+              <div class="font-mono text-xs text-rose-600">+340%</div>
+            </div>
+            <div class="flex items-end gap-1 h-12">
+              <div class="bg-blue-200 rounded-t" style="width:10px;height:15%"></div>
+              <div class="bg-blue-200 rounded-t" style="width:10px;height:22%"></div>
+              <div class="bg-blue-300 rounded-t" style="width:10px;height:35%"></div>
+              <div class="bg-blue-300 rounded-t" style="width:10px;height:30%"></div>
+              <div class="bg-blue-400 rounded-t" style="width:10px;height:48%"></div>
+              <div class="bg-blue-400 rounded-t" style="width:10px;height:55%"></div>
+              <div class="bg-blue-500 rounded-t" style="width:10px;height:72%"></div>
+              <div class="bg-blue-500 rounded-t" style="width:10px;height:65%"></div>
+              <div class="bg-rose-400 rounded-t" style="width:10px;height:88%"></div>
+              <div class="bg-rose-500 rounded-t" style="width:10px;height:100%"></div>
+            </div>
+            <div class="flex justify-between mt-1 text-[9px] text-stone-400 font-mono">
+              <span>Apr 22</span><span>May 22</span>
+            </div>
+          </div>
+
+          <div class="text-sm mt-3">
+            Put/call ratio at <span class="font-mono font-semibold">0.42</span> (extreme call-buying). Options skew flipped negative last week. Insider selling picked up at $440+. When everyone's bullish, I get suspicious.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Nora: News -->
+    <div class="flex gap-3">
+      <div class="avatar" style="background:#fce7f3;">📰</div>
+      <div class="flex-1">
+        <div class="flex items-center gap-2 mb-1">
+          <span class="font-semibold text-sm">Nora</span>
+          <span class="text-[10px] text-stone-500">News scout</span>
+          <span class="vote-pill vote-hold">HOLD · 54%</span>
+        </div>
+        <div class="agent-bubble" style="background:#fdf2f8;">
+          <div class="text-sm mb-3">
+            I'm the swing vote on this one. News flow is mixed — let me show you what's moving:
+          </div>
+          <div class="space-y-2">
+            <div class="paper-card p-2 flex items-start gap-2" style="box-shadow:none;border-color:#fce7f3;">
+              <span class="text-emerald-600 font-bold text-xs mt-0.5">+</span>
+              <div>
+                <div class="text-xs font-semibold">MI300X orders from Anthropic, Cohere reported</div>
+                <div class="text-[10px] text-stone-500">Reuters · 2 days ago · sentiment +0.82</div>
+              </div>
+            </div>
+            <div class="paper-card p-2 flex items-start gap-2" style="box-shadow:none;border-color:#fce7f3;">
+              <span class="text-rose-600 font-bold text-xs mt-0.5">−</span>
+              <div>
+                <div class="text-xs font-semibold">Bank of America cuts to "Neutral" from Buy</div>
+                <div class="text-[10px] text-stone-500">CNBC · 1 day ago · sentiment −0.61</div>
+              </div>
+            </div>
+            <div class="paper-card p-2 flex items-start gap-2" style="box-shadow:none;border-color:#fce7f3;">
+              <span class="text-amber-600 font-bold text-xs mt-0.5">~</span>
+              <div>
+                <div class="text-xs font-semibold">Nvidia Q1 earnings (Wed) — read-through risk</div>
+                <div class="text-[10px] text-stone-500">Bloomberg · today · sentiment neutral</div>
+              </div>
+            </div>
+          </div>
+          <div class="text-sm mt-3">
+            Honestly? I'd wait through Nvidia earnings. That's the binary catalyst. If NVDA beats, AMD probably rallies one more time before any reversal.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- THE VERDICT -->
+    <div class="verdict-card p-6 mt-6">
+      <div class="flex items-center gap-2 mb-3">
+        <div class="w-6 h-6 rounded-full bg-amber-400/20 flex items-center justify-center text-amber-400">⚖</div>
+        <div class="text-[10px] uppercase tracking-wider text-stone-400 font-semibold">The council's verdict</div>
+      </div>
+      <div class="font-serif text-3xl font-bold leading-tight mb-3">
+        "Trim, don't exit. The trend is wounded — but not dead."
+      </div>
+      <p class="text-stone-300 text-sm leading-relaxed mb-4">
+        Three of us see exhaustion signals (Mira, Sam, Finn on technicals); Finn alone defends the fundamentals.
+        Nora wants to wait for Nvidia. The compromise: <span class="text-emerald-300 font-semibold">sell 40% above $445</span>,
+        keep <span class="text-emerald-300 font-semibold">60% with a trailing stop at $410</span>. You captured a 40% gain on the trimmed portion;
+        the rest rides the thesis with downside protection.
+      </p>
+
+      <div class="grid grid-cols-3 gap-3 mb-4">
+        <div class="bg-white/5 rounded-xl p-3 border border-white/10">
+          <div class="text-[9px] uppercase text-stone-400">Action</div>
+          <div class="text-lg font-bold text-emerald-300 mt-1">Sell 40%</div>
+          <div class="text-[10px] text-stone-400">above $445</div>
+        </div>
+        <div class="bg-white/5 rounded-xl p-3 border border-white/10">
+          <div class="text-[9px] uppercase text-stone-400">Stop</div>
+          <div class="text-lg font-bold text-amber-300 mt-1">$410</div>
+          <div class="text-[10px] text-stone-400">trailing, ~8.8%</div>
+        </div>
+        <div class="bg-white/5 rounded-xl p-3 border border-white/10">
+          <div class="text-[9px] uppercase text-stone-400">Re-evaluate</div>
+          <div class="text-lg font-bold text-stone-100 mt-1">Wed</div>
+          <div class="text-[10px] text-stone-400">post-NVDA earnings</div>
+        </div>
+      </div>
+
+      <div class="flex gap-2">
+        <button class="flex-1 bg-emerald-400 text-stone-900 rounded-xl py-2.5 font-semibold text-sm flex items-center justify-center gap-2">
+          <i data-lucide="check" class="w-4 h-4"></i> Save plan
+        </button>
+        <button class="flex-1 bg-white/10 text-white rounded-xl py-2.5 font-semibold text-sm flex items-center justify-center gap-2 border border-white/20">
+          <i data-lucide="message-circle" class="w-4 h-4"></i> Ask a question
+        </button>
+      </div>
+    </div>
+
+    <!-- Continuing conversation -->
+    <div class="flex gap-3 mt-6">
+      <div class="avatar" style="background:#fef3c7;">📊</div>
+      <div class="flex-1">
+        <div class="flex items-center gap-2 mb-1">
+          <span class="font-semibold text-sm">Mira</span>
+          <span class="text-[10px] text-stone-500">is typing</span>
+        </div>
+        <div class="agent-bubble" style="background:#fef9e7; padding: 16px;">
+          <div class="typing-dots"><span></span><span></span><span></span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Input -->
+    <div class="paper-card p-2 flex items-center gap-2 sticky bottom-4">
+      <button class="p-2 text-stone-400 hover:text-stone-900"><i data-lucide="paperclip" class="w-5 h-5"></i></button>
+      <input type="text" placeholder="Reply to the council, or @mention an agent..." class="flex-1 bg-transparent outline-none text-sm py-2"/>
+      <button class="p-2 text-stone-400 hover:text-stone-900"><i data-lucide="mic" class="w-5 h-5"></i></button>
+      <button class="px-4 py-2 bg-stone-900 text-white rounded-xl text-sm font-semibold flex items-center gap-1.5">
+        Send <i data-lucide="arrow-up" class="w-4 h-4"></i>
+      </button>
+    </div>
+
+  </main>
+
+  <!-- RIGHT: AT-A-GLANCE -->
+  <aside class="col-span-3 space-y-4">
+
+    <!-- Conviction wheel -->
+    <div class="paper-card p-5">
+      <div class="text-[10px] uppercase tracking-wider text-stone-400 font-semibold mb-3">Council consensus</div>
+      <div class="relative w-40 h-40 mx-auto">
+        <svg class="progress-ring" width="160" height="160">
+          <circle cx="80" cy="80" r="65" stroke="#f3ede2" stroke-width="14" fill="none"/>
+          <circle cx="80" cy="80" r="65" stroke="#a93f5b" stroke-width="14" fill="none"
+            stroke-dasharray="408" stroke-dashoffset="90" stroke-linecap="round"/>
+        </svg>
+        <div class="absolute inset-0 flex flex-col items-center justify-center">
+          <div class="font-serif text-4xl font-bold" style="color:var(--berry)">78%</div>
+          <div class="text-[10px] uppercase tracking-wider text-stone-500">SELL bias</div>
+        </div>
+      </div>
+      <div class="mt-4 space-y-1.5 text-xs">
+        <div class="flex items-center justify-between">
+          <span class="flex items-center gap-1.5">📊 Mira</span>
+          <span class="vote-pill vote-bear">SELL</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="flex items-center gap-1.5">💬 Sam</span>
+          <span class="vote-pill vote-bear">SELL</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="flex items-center gap-1.5">📰 Nora</span>
+          <span class="vote-pill vote-hold">HOLD</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="flex items-center gap-1.5">📈 Finn</span>
+          <span class="vote-pill vote-bull">BUY</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick stats -->
+    <div class="paper-card p-5">
+      <div class="text-[10px] uppercase tracking-wider text-stone-400 font-semibold mb-3">By the numbers</div>
+      <div class="space-y-3">
+        <div>
+          <div class="flex justify-between mb-0.5">
+            <span class="text-xs text-stone-500">Price</span>
+            <span class="text-xs font-mono font-semibold">$449.59</span>
+          </div>
+          <div class="text-[10px] text-rose-500 font-mono">−2.1% today · +125% / 90d</div>
+        </div>
+        <div>
+          <div class="flex justify-between mb-0.5">
+            <span class="text-xs text-stone-500">RSI (14)</span>
+            <span class="text-xs font-mono font-semibold">69.9</span>
+          </div>
+          <div class="w-full bg-stone-100 rounded-full h-1.5">
+            <div class="bg-amber-500 h-1.5 rounded-full" style="width:70%"></div>
+          </div>
+        </div>
+        <div>
+          <div class="flex justify-between mb-0.5">
+            <span class="text-xs text-stone-500">vs 50 SMA</span>
+            <span class="text-xs font-mono font-semibold text-amber-600">+51%</span>
+          </div>
+        </div>
+        <div>
+          <div class="flex justify-between mb-0.5">
+            <span class="text-xs text-stone-500">ATR (14)</span>
+            <span class="text-xs font-mono font-semibold">24.7</span>
+          </div>
+          <div class="text-[10px] text-stone-500">2.4× normal volatility</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Memorable quotes -->
+    <div class="paper-card p-5 relative">
+      <div class="quote-mark">"</div>
+      <div class="text-[10px] uppercase tracking-wider text-stone-400 font-semibold mb-3 pl-2">Quote of the session</div>
+      <p class="font-serif text-base italic text-stone-700 leading-snug pl-2">
+        Strong fundamentals don't override mean-reversion math.
+      </p>
+      <div class="text-xs text-stone-500 mt-2 pl-2">— Mira, market analyst</div>
+    </div>
+
+  </aside>
+
+</div>
+
+<script>
+  lucide.createIcons();
+</script>
+
+</body>
+</html>
