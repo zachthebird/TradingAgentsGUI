@@ -113,7 +113,7 @@ const STATE_FRAMES = {
   debater:      { idle:'design/comic-cast/balthazar-idle.png', thinking:'design/comic-cast/balthazar-idle.png', speaking:'design/comic-cast/balthazar-speaking.png', reacting:'design/comic-cast/balthazar-reacting.png', done:'design/comic-cast/balthazar-reacting.png' },
   risk:         { idle:'design/comic-cast/morwen-idle.png', thinking:'design/comic-cast/morwen-idle.png', speaking:'design/comic-cast/morwen-speaking.png', reacting:'design/comic-cast/morwen-reacting.png', done:'design/comic-cast/morwen-reacting.png' },
   trader:       { idle:'design/comic-cast/kael-idle.png', thinking:'design/comic-cast/kael-idle.png', speaking:'design/comic-cast/kael-speaking.png', reacting:'design/comic-cast/kael-reacting.png', done:'design/comic-cast/kael-reacting.png' },
-  judge:        { idle:'design/comic-cast/aldric-idle.png', thinking:'design/comic-cast/aldric-idle.png', speaking:'design/comic-cast/aldric-idle.png', reacting:'design/comic-cast/aldric-idle.png', done:'design/comic-cast/aldric-idle.png' },
+  judge:        { idle:'design/comic-cast/aldric-idle.png', thinking:'design/comic-cast/aldric-idle.png', speaking:'design/comic-cast/aldric-speaking.png', reacting:'design/comic-cast/aldric-reacting.png', done:'design/comic-cast/aldric-reacting.png' },
 };
 
 const BUBBLE_TYPES = {
