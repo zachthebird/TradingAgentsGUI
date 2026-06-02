@@ -14,10 +14,10 @@ html { background: #1a1a2e; }
 
 /* ── DMG Palette + Pixel Font ── */
 :root {
-  --dmg-darkest:  #0F380F;
-  --dmg-dark:     #306230;
-  --dmg-mid:      #8BAC0F;
-  --dmg-lightest: #9BBC0F;
+  --dmg-darkest:  #081820;
+  --dmg-dark:     #346856;
+  --dmg-mid:      #88C070;
+  --dmg-lightest: #E0F8D0;
   --font-pixel:   'Press Start 2P', 'Courier New', monospace;
   --sentiment-pct: 50%;
   --conviction-bear: 82%;
@@ -26,6 +26,7 @@ html { background: #1a1a2e; }
 
 /* ── Device Bezel ── */
 .adv-mock-device {
+  position: relative;
   max-width: 640px;
   margin: 40px auto;
   background: var(--dmg-lightest);
@@ -59,7 +60,8 @@ html { background: #1a1a2e; }
 .adv-battle-arena {
   position: relative;
   width: 100%;
-  height: 350px;
+  height: 380px;
+  min-width: 480px;
   background: var(--dmg-dark);
   border-left: 4px solid var(--dmg-darkest);
   border-right: 4px solid var(--dmg-darkest);
@@ -79,7 +81,7 @@ html { background: #1a1a2e; }
 }
 
 .adv-battle-portrait-bull {
-  bottom: 40px;
+  bottom: 50px;
   left: 20px;
 }
 
@@ -96,8 +98,8 @@ html { background: #1a1a2e; }
 }
 
 .adv-battle-frame img {
-  width: 250px;
-  height: 250px;
+  width: 220px;
+  height: 220px;
   image-rendering: auto;
   display: block;
   object-fit: cover;
@@ -109,7 +111,7 @@ html { background: #1a1a2e; }
   bottom: -2px;
   left: 50%;
   transform: translateX(-50%);
-  width: 270px;
+  width: 240px;
   height: 10px;
   background: var(--dmg-darkest);
   border-top: 2px solid var(--dmg-mid);
@@ -122,8 +124,8 @@ html { background: #1a1a2e; }
 .adv-battle-stats-bear,
 .adv-battle-stats-bull {
   position: absolute;
-  width: 195px;
-  z-index: 3;
+  width: 180px;
+  z-index: 4;
   background: var(--dmg-dark);
   border: 3px solid var(--dmg-darkest);
   box-shadow: 3px 3px 0 var(--dmg-darkest);
@@ -133,13 +135,13 @@ html { background: #1a1a2e; }
 }
 
 .adv-battle-stats-bear {
-  top: 14px;
-  left: 16px;
+  top: 10px;
+  right: 20px;
 }
 
 .adv-battle-stats-bull {
   bottom: 50px;
-  right: 16px;
+  left: 20px;
 }
 
 .adv-battle-stats-name {
@@ -439,6 +441,99 @@ html { background: #1a1a2e; }
   50%      { transform: translateY(-4px); }
 }
 
+/* ── VS Intro Overlay Keyframes ── */
+@keyframes vs-slide-left {
+  0%   { transform: translateX(-120%); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+@keyframes vs-slide-right {
+  0%   { transform: translateX(120%); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+@keyframes vs-strike {
+  0%   { transform: scale(0); opacity: 0; }
+  60%  { transform: scale(1.3); opacity: 1; }
+  80%  { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+@keyframes vs-wipe {
+  0%   { clip-path: inset(0 0 100% 0); }
+  100% { clip-path: inset(0 0 0 0); }
+}
+@keyframes vs-reveal-battle {
+  0%   { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+/* ── VS Intro Overlay ── */
+.adv-vs-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  background: var(--dmg-dark);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-pixel);
+}
+.adv-vs-overlay-bg {
+  position: absolute;
+  inset: 0;
+  background: var(--dmg-darkest);
+  z-index: 0;
+}
+.adv-vs-overlay .adv-vs-slots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  z-index: 1;
+}
+.adv-vs-slot-left {
+  width: 120px;
+  height: 120px;
+  border: 6px solid var(--dmg-darkest);
+  outline: 2px solid var(--dmg-mid);
+  outline-offset: -8px;
+  overflow: hidden;
+  opacity: 0;
+}
+.adv-vs-slot-right {
+  width: 120px;
+  height: 120px;
+  border: 6px solid var(--dmg-darkest);
+  outline: 2px solid var(--dmg-mid);
+  outline-offset: -8px;
+  overflow: hidden;
+  opacity: 0;
+}
+.adv-vs-slot-left img,
+.adv-vs-slot-right img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  image-rendering: auto;
+}
+.adv-vs-overlay .adv-vs-divider {
+  font-family: var(--font-pixel);
+  font-size: 16px;
+  color: var(--dmg-lightest);
+  background: var(--dmg-darkest);
+  padding: 6px 14px;
+  letter-spacing: 2px;
+  z-index: 1;
+}
+.adv-vs-overlay .adv-vs-label {
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  color: var(--dmg-mid);
+  text-transform: uppercase;
+  margin-top: 12px;
+  z-index: 1;
+  min-height: 12px;
+}
+
 /* ── Reduced Motion ── */
 @media (prefers-reduced-motion: reduce) {
   .adv-battle-active .adv-battle-frame img {
@@ -447,6 +542,13 @@ html { background: #1a1a2e; }
   .adv-battle-active .adv-battle-frame,
   .adv-battle-idle .adv-battle-frame {
     transition: none;
+  }
+  .adv-vs-overlay,
+  .adv-vs-slot-left,
+  .adv-vs-slot-right,
+  .adv-vs-overlay .adv-vs-divider {
+    animation: none !important;
+    transition: opacity 150ms ease-in !important;
   }
 }
 
@@ -458,32 +560,33 @@ html { background: #1a1a2e; }
     border-width: 8px;
   }
   .adv-battle-arena {
-    height: 280px;
+    height: 320px;
+    min-width: 320px;
   }
   .adv-battle-frame img {
-    width: 180px;
-    height: 180px;
+    width: 160px;
+    height: 160px;
   }
   .adv-battle-portrait-bear {
     top: 8px;
     right: 8px;
   }
   .adv-battle-portrait-bull {
-    bottom: 28px;
+    bottom: 38px;
     left: 8px;
   }
   .adv-battle-stats-bear,
   .adv-battle-stats-bull {
-    width: 150px;
-    font-size: 8px;
+    width: 130px;
+    font-size: 7px;
   }
   .adv-battle-stats-bear {
     top: 8px;
-    left: 8px;
+    right: 8px;
   }
   .adv-battle-stats-bull {
-    bottom: 36px;
-    right: 8px;
+    bottom: 38px;
+    left: 8px;
   }
   .adv-battle-stats-name {
     font-size: 8px;
@@ -495,7 +598,7 @@ html { background: #1a1a2e; }
     font-size: 7px;
   }
   .adv-battle-platform {
-    width: 210px;
+    width: 180px;
     height: 8px;
   }
   .adv-battle-move-flourish {
@@ -521,6 +624,27 @@ html { background: #1a1a2e; }
 <body>
 
 <div class="adv-mock-device">
+
+  <!-- ═══════════════ VS INTRO OVERLAY ═══════════════ -->
+  <div class="adv-vs-overlay" id="vsOverlay">
+    <div class="adv-vs-overlay-bg"></div>
+    <div class="adv-vs-slots">
+      <div class="adv-vs-slot-left" id="vsSlotLeft">
+        <img src="../comic-cast/balthazar-idle.png"
+             alt="Balthazar — Investment Bull Debater"
+             width="120" height="120"
+             decoding="sync">
+      </div>
+      <div class="adv-vs-divider">V S</div>
+      <div class="adv-vs-slot-right" id="vsSlotRight">
+        <img src="../comic-cast/morwen-idle.png"
+             alt="Morwen — Risk Bear Debater"
+             width="120" height="120"
+             decoding="sync">
+      </div>
+    </div>
+    <div class="adv-vs-label" id="vsLabel"></div>
+  </div>
 
   <!-- ═══════════════ SECTION 1: BATTLE VIEW ═══════════════ -->
   <section class="adv-hero adv-battle-view">
@@ -554,7 +678,7 @@ html { background: #1a1a2e; }
         <div class="adv-battle-frame">
           <img src="../comic-cast/morwen-idle.png"
                alt="Morwen, the Risk Bear Debater"
-               width="250" height="250"
+               width="220" height="220"
                decoding="sync" loading="eager">
         </div>
         <div class="adv-battle-platform"></div>
@@ -565,7 +689,7 @@ html { background: #1a1a2e; }
         <div class="adv-battle-frame">
           <img src="../comic-cast/balthazar-speaking.png"
                alt="Balthazar, the Investment Bull Debater"
-               width="250" height="250"
+               width="220" height="220"
                decoding="sync" loading="eager">
         </div>
         <div class="adv-battle-platform"></div>
@@ -614,26 +738,6 @@ html { background: #1a1a2e; }
       <div class="adv-dialogue-advance" id="dialogueAdvance">▼</div>
     </div>
 
-  </section>
-
-  <!-- ═══════════════ SECTION 2: VS SPLASH ═══════════════ -->
-  <section class="adv-vs-splash">
-    <div class="adv-vs-slots">
-      <div class="adv-vs-slot">
-        <img src="../comic-cast/balthazar-idle.png"
-             alt="Balthazar — Investment Bull Debater"
-             width="80" height="80"
-             decoding="sync">
-      </div>
-      <div class="adv-vs-divider">V S</div>
-      <div class="adv-vs-slot">
-        <img src="../comic-cast/morwen-idle.png"
-             alt="Morwen — Risk Bear Debater"
-             width="80" height="80"
-             decoding="sync">
-      </div>
-    </div>
-    <div class="adv-vs-label">RESEARCH PHASE • ANALYSTS DEPLOYED</div>
   </section>
 
   <!-- ═══════════════ SECTION 3: VERDICT BANNER ═══════════════ -->
@@ -858,19 +962,93 @@ html { background: #1a1a2e; }
     }
   }
 
-  // ── Init ──
-  setMomentum(TURNS[0].momentum);
-  updateTurnCounter();
+  // ── VS Intro Orchestration ──
+  function typewriteText(el, text, msPerChar) {
+    var i = 0;
+    el.textContent = '';
+    function tick() {
+      if (i < text.length) {
+        el.textContent += text.charAt(i);
+        i++;
+        setTimeout(tick, msPerChar);
+      }
+    }
+    tick();
+  }
 
-  // Start first turn: show move flourish immediately
-  showMoveFlourish();
-  mainTimer = setTimeout(function() {
-    hideMoveFlourish();
+  function runVSIntro() {
+    var overlay = document.getElementById('vsOverlay');
+    var leftSlot = document.getElementById('vsSlotLeft');
+    var rightSlot = document.getElementById('vsSlotRight');
+    var vsBlock = overlay.querySelector('.adv-vs-divider');
+    var vsLabel = document.getElementById('vsLabel');
+
+    // Phase 1: Fade in from transparent (0–300ms)
+    overlay.style.opacity = '0';
+    overlay.style.transition = 'opacity 200ms ease-in';
+    requestAnimationFrame(function() {
+      overlay.style.opacity = '1';
+    });
+
+    // Phase 2: Slide portraits in (300ms delay)
+    setTimeout(function() {
+      leftSlot.style.animation = 'vs-slide-left 400ms ease-out forwards';
+      leftSlot.style.opacity = '1';
+      rightSlot.style.animation = 'vs-slide-right 400ms ease-out forwards';
+      rightSlot.style.opacity = '1';
+    }, 300);
+
+    // Phase 3: VS strike (800ms)
+    setTimeout(function() {
+      vsBlock.style.animation = 'vs-strike 300ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards';
+      // Screen flash
+      overlay.style.background = 'var(--dmg-lightest)';
+      setTimeout(function() { overlay.style.background = 'var(--dmg-dark)'; }, 80);
+    }, 800);
+
+    // Phase 4: Typewriter label (1200ms)
+    setTimeout(function() {
+      typewriteText(vsLabel, 'RESEARCH PHASE \u2022 ANALYSTS DEPLOYED', 40);
+    }, 1200);
+
+    // Phase 5-6: Wipe transition → reveal battle (2500ms)
+    setTimeout(function() {
+      overlay.style.animation = 'vs-wipe 700ms ease-in forwards';
+      // After wipe completes, hide overlay, reveal battle
+      setTimeout(function() {
+        overlay.style.display = 'none';
+        var battleView = document.querySelector('.adv-battle-view');
+        if (battleView) {
+          battleView.style.opacity = '0';
+          battleView.style.animation = 'vs-reveal-battle 400ms ease-out forwards';
+          requestAnimationFrame(function() {
+            battleView.style.opacity = '1';
+          });
+        }
+        // Phase 7: Start first turn
+        setupFirstTurn();
+      }, 700);
+    }, 2500);
+  }
+
+  function setupFirstTurn() {
+    setMomentum(TURNS[0].momentum);
+    updateTurnCounter();
+
+    // Start first turn: show move flourish immediately
+    showMoveFlourish();
     mainTimer = setTimeout(function() {
-      typing = true;
-      typewriterTimer = setTimeout(typeChar, INITIAL_DELAY_MS);
-    }, MOVE_FADE_DURATION + 400);
-  }, MOVE_FLOURISH_DURATION);
+      hideMoveFlourish();
+      mainTimer = setTimeout(function() {
+        typing = true;
+        typewriterTimer = setTimeout(typeChar, INITIAL_DELAY_MS);
+      }, MOVE_FADE_DURATION + 400);
+    }, MOVE_FLOURISH_DURATION);
+  }
+
+  // ── Init ──
+  // Kick off VS intro; it calls setupFirstTurn() when done
+  runVSIntro();
 
   // Click handler
   dialogueBox.addEventListener('click', function() {
