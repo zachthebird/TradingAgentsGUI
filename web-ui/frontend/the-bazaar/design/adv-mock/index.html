@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en" class="fonts-loaded">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ADV Debate Screen — Game Boy DMG Mock</title>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+/* ── Reset & Page ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { background: #1a1a2e; }
+
+/* ── DMG Palette + Pixel Font ── */
+:root {
+  --dmg-darkest:  #0F380F;
+  --dmg-dark:     #306230;
+  --dmg-mid:      #8BAC0F;
+  --dmg-lightest: #9BBC0F;
+  --font-pixel:   'Press Start 2P', 'Courier New', monospace;
+  --sentiment-pct: 62%;
+}
+
+/* ── Device Bezel ── */
+.adv-mock-device {
+  max-width: 640px;
+  margin: 40px auto;
+  background: var(--dmg-lightest);
+  border: 16px solid var(--dmg-darkest);
+  border-radius: 4px;
+  padding: 12px;
+  box-shadow:
+    0 0 0 4px var(--dmg-darkest),
+    0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* ── SECTION 1: Hero Screen ── */
+.adv-hero {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 3.1.1 Status Strip */
+.adv-status-strip {
+  height: 40px;
+  background: var(--dmg-dark);
+  border-top: 2px solid var(--dmg-darkest);
+  border-bottom: 2px solid var(--dmg-darkest);
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: 0 12px;
+  font-family: var(--font-pixel);
+  font-size: 10px;
+  color: var(--dmg-lightest);
+}
+.adv-status-ticker   { text-align: left; text-transform: uppercase; }
+.adv-status-title    { text-align: center; text-transform: uppercase; }
+.adv-status-turn     { text-align: right; white-space: nowrap; }
+
+/* 3.1.2 Portrait Frame */
+.adv-portrait-frame {
+  border: 12px solid var(--dmg-darkest);
+  outline: 2px solid var(--dmg-mid);
+  outline-offset: -14px;
+  padding: 6px;
+  background: var(--dmg-lightest);
+  box-shadow: 4px 4px 0 var(--dmg-darkest);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  margin: 20px auto 16px;
+}
+.adv-portrait-frame img {
+  width: 400px;
+  height: 400px;
+  image-rendering: auto;
+  display: block;
+}
+
+/* 3.1.3 Sentiment Bar */
+.adv-sentiment-bar {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto 16px;
+  padding: 0 4px;
+}
+.adv-sentiment-label {
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  color: var(--dmg-darkest);
+  white-space: nowrap;
+}
+.adv-sentiment-track {
+  height: 14px;
+  background: var(--dmg-dark);
+  border: 2px solid var(--dmg-darkest);
+  position: relative;
+  overflow: hidden;
+}
+.adv-sentiment-fill {
+  height: 100%;
+  width: var(--sentiment-pct, 50%);
+  background: linear-gradient(90deg, var(--dmg-dark) 0%, var(--dmg-mid) 100%);
+  position: relative;
+  transition: width 0.4s steps(8);
+}
+/* HP-style tick marks every 10% */
+.adv-sentiment-track::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent,
+    transparent calc(10% - 1px),
+    var(--dmg-darkest) calc(10% - 1px),
+    var(--dmg-darkest) 10%
+  );
+  opacity: 0.15;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* 3.1.4 Dialogue Box */
+.adv-dialogue-box {
+  width: 520px;
+  height: 144px;
+  background: var(--dmg-dark);
+  border: 4px solid var(--dmg-darkest);
+  box-shadow: 4px 4px 0 var(--dmg-darkest), inset 0 0 0 2px var(--dmg-mid);
+  padding: 14px 16px;
+  margin: 0 auto;
+  position: relative;
+  font-family: var(--font-pixel);
+  color: var(--dmg-lightest);
+  box-sizing: border-box;
+}
+.adv-dialogue-speaker {
+  font-size: 10px;
+  line-height: 1;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+.adv-dialogue-divider {
+  height: 1px;
+  background: var(--dmg-mid);
+  margin-bottom: 10px;
+}
+.adv-dialogue-body {
+  font-size: 8px;
+  line-height: 1.8;
+  min-height: 72px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.adv-dialogue-cursor {
+  display: inline;
+  animation: adv-cursor-blink 1.06s step-end infinite;
+}
+.adv-dialogue-advance {
+  position: absolute;
+  bottom: 12px;
+  right: 16px;
+  font-size: 10px;
+  animation: adv-blink-slow 1.4s step-end infinite;
+  opacity: 0;
+}
+.adv-dialogue-advance.adv-visible { opacity: 1; }
+
+/* ── SECTION 2: VS Splash ── */
+.adv-vs-splash {
+  background: var(--dmg-dark);
+  border: 4px solid var(--dmg-darkest);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.adv-vs-slots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+}
+.adv-vs-slot {
+  width: 80px;
+  height: 80px;
+  border: 6px solid var(--dmg-darkest);
+  outline: 2px solid var(--dmg-mid);
+  outline-offset: -8px;
+  overflow: hidden;
+}
+.adv-vs-slot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  image-rendering: auto;
+}
+.adv-vs-divider {
+  font-family: var(--font-pixel);
+  font-size: 16px;
+  color: var(--dmg-lightest);
+  background: var(--dmg-darkest);
+  padding: 6px 14px;
+  letter-spacing: 2px;
+}
+.adv-vs-label {
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  color: var(--dmg-mid);
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+
+/* ── SECTION 3: Verdict Banner ── */
+.adv-verdict-banner {
+  background: var(--dmg-dark);
+  border: 4px solid var(--dmg-darkest);
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+.adv-verdict-headline {
+  font-family: var(--font-pixel);
+  font-size: 12px;
+  color: var(--dmg-lightest);
+  text-align: center;
+  line-height: 1.5;
+}
+.adv-verdict-ruling {
+  color: var(--dmg-mid);
+}
+.adv-verdict-banner .adv-sentiment-bar {
+  --sentiment-pct: 55%;
+}
+.adv-verdict-prompt {
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  color: var(--dmg-mid);
+  animation: adv-blink-slow 2.5s step-end infinite;
+}
+
+/* ── Keyframes ── */
+@keyframes adv-cursor-blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0; }
+}
+@keyframes adv-blink-slow {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0; }
+}
+
+/* ── Responsive (< 640px) ── */
+@media (max-width: 640px) {
+  .adv-mock-device {
+    max-width: 100%;
+    margin: 16px 8px;
+    border-width: 8px;
+  }
+  .adv-portrait-frame img {
+    width: 280px;
+    height: 280px;
+  }
+  .adv-dialogue-box {
+    width: 100%;
+    min-height: 120px;
+    height: auto;
+  }
+  .adv-vs-slot {
+    width: 64px;
+    height: 64px;
+  }
+  .adv-vs-slot img {
+    width: 64px;
+    height: 64px;
+  }
+}
+</style>
+</head>
+<body>
+
+<div class="adv-mock-device">
+
+  <!-- ═══════════════ SECTION 1: HERO SCREEN ═══════════════ -->
+  <section class="adv-hero">
+
+    <!-- Status Strip -->
+    <div class="adv-status-strip">
+      <span class="adv-status-ticker">AAPL</span>
+      <span class="adv-status-title">THE ROUND TABLE</span>
+      <span class="adv-status-turn">TURN 4 / 12 🕯</span>
+    </div>
+
+    <!-- Portrait Frame -->
+    <div class="adv-portrait-frame">
+      <img src="../comic-cast/flint-2-speaking.png"
+           alt="Flint — Market Analyst"
+           width="400" height="400"
+           decoding="async">
+    </div>
+
+    <!-- Sentiment Bar -->
+    <div class="adv-sentiment-bar">
+      <span class="adv-sentiment-label">🐻 BEAR</span>
+      <div class="adv-sentiment-track">
+        <div class="adv-sentiment-fill"></div>
+      </div>
+      <span class="adv-sentiment-label">BULL 🐂</span>
+    </div>
+
+    <!-- Dialogue Box -->
+    <div class="adv-dialogue-box" id="dialogueBox">
+      <div class="adv-dialogue-speaker">FLINT — Market Analyst</div>
+      <div class="adv-dialogue-divider"></div>
+      <div class="adv-dialogue-body" id="dialogueBody">
+        <span id="dialogueText"></span><span class="adv-dialogue-cursor" id="dialogueCursor">█</span>
+      </div>
+      <div class="adv-dialogue-advance" id="dialogueAdvance">▼</div>
+    </div>
+
+  </section>
+
+  <!-- ═══════════════ SECTION 2: VS SPLASH ═══════════════ -->
+  <section class="adv-vs-splash">
+    <div class="adv-vs-slots">
+      <div class="adv-vs-slot">
+        <img src="../comic-cast/balthazar-idle.png"
+             alt="Balthazar — Investment Bull Debater"
+             width="80" height="80"
+             loading="lazy" decoding="async">
+      </div>
+      <div class="adv-vs-divider">V S</div>
+      <div class="adv-vs-slot">
+        <img src="../comic-cast/morwen-idle.png"
+             alt="Morwen — Risk Bear Debater"
+             width="80" height="80"
+             loading="lazy" decoding="async">
+      </div>
+    </div>
+    <div class="adv-vs-label">RESEARCH PHASE • ANALYSTS DEPLOYED</div>
+  </section>
+
+  <!-- ═══════════════ SECTION 3: VERDICT BANNER ═══════════════ -->
+  <section class="adv-verdict-banner">
+    <div class="adv-verdict-headline">
+      THE COUNCIL HAS RULED — <span class="adv-verdict-ruling">HOLD</span>
+    </div>
+    <div class="adv-sentiment-bar">
+      <span class="adv-sentiment-label">🐻 BEAR</span>
+      <div class="adv-sentiment-track">
+        <div class="adv-sentiment-fill"></div>
+      </div>
+      <span class="adv-sentiment-label">BULL 🐂</span>
+    </div>
+    <div class="adv-verdict-prompt">PRESS ▲ TO READ THE CHRONICLE</div>
+  </section>
+
+</div>
+
+<!-- ═══════════════ INLINE JS: Typewriter ═══════════════ -->
+<script>
+(function() {
+  'use strict';
+
+  // ── Dialogue text (canned finance/debate sample) ──
+  var FULL_TEXT = 
+    "The MACD histogram reveals a bearish\n" +
+    "divergence on the daily timeframe.\n" +
+    "Volume has been declining for three\n" +
+    "consecutive sessions, signaling\n" +
+    "distribution at these levels.";
+
+  var CHARS_PER_SEC = 20;          // 50ms per char
+  var INITIAL_DELAY_MS = 400;
+  var CURSOR_BLINK_MS = 530;
+  var ADVANCE_BLINK_MS = 700;
+  var ADVANCE_START_DELAY_MS = 800;
+
+  var textEl   = document.getElementById('dialogueText');
+  var cursorEl = document.getElementById('dialogueCursor');
+  var advanceEl = document.getElementById('dialogueAdvance');
+
+  var charIndex = 0;
+  var totalChars = FULL_TEXT.length;
+  var timer;
+  var done = false;
+
+  function typeChar() {
+    if (charIndex < totalChars) {
+      textEl.textContent = FULL_TEXT.substring(0, charIndex + 1);
+      charIndex++;
+      timer = setTimeout(typeChar, 1000 / CHARS_PER_SEC);
+    } else {
+      finishTyping();
+    }
+  }
+
+  function finishTyping() {
+    done = true;
+    // Hide the block cursor after 800ms, then show blinking advance ▼
+    setTimeout(function() {
+      cursorEl.style.display = 'none';
+      advanceEl.classList.add('adv-visible');
+    }, ADVANCE_START_DELAY_MS);
+  }
+
+  function skipToEnd() {
+    clearTimeout(timer);
+    textEl.textContent = FULL_TEXT;
+    charIndex = totalChars;
+    finishTyping();
+  }
+
+  // Start typewriter after initial delay
+  timer = setTimeout(typeChar, INITIAL_DELAY_MS);
+
+  // Click / keypress advances: skip to end if typing, restart if done
+  var dialogueBox = document.getElementById('dialogueBox');
+  dialogueBox.addEventListener('click', function() {
+    if (!done) {
+      skipToEnd();
+    } else {
+      // Restart for demo purposes
+      charIndex = 0;
+      done = false;
+      textEl.textContent = '';
+      cursorEl.style.display = 'inline';
+      advanceEl.classList.remove('adv-visible');
+      timer = setTimeout(typeChar, INITIAL_DELAY_MS);
+    }
+  });
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      dialogueBox.click();
+    }
+  });
+
+})();
+</script>
+
+</body>
+</html>
