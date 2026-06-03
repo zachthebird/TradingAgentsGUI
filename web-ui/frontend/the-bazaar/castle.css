@@ -112,6 +112,7 @@ button.primary, [class*=primary] button, button[class*=Primary] {
   font-family: var(--font-pixel);
   font-size: 10px;
   color: var(--dmg-lightest);
+  text-shadow: 0 1px 0 var(--dmg-darkest);
 }
 .adv-status-ticker   { text-align: left; text-transform: uppercase; }
 .adv-status-title    { text-align: center; text-transform: uppercase; }
@@ -244,7 +245,7 @@ button.primary, [class*=primary] button, button[class*=Primary] {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.4;
   margin-bottom: 6px;
 }
@@ -252,7 +253,7 @@ button.primary, [class*=primary] button, button[class*=Primary] {
   text-transform: uppercase;
 }
 .adv-battle-stats-allegiance {
-  font-size: 8px;
+  font-size: 10px;
   color: var(--dmg-lightest);
 }
 .adv-battle-stats-divider {
@@ -261,7 +262,7 @@ button.primary, [class*=primary] button, button[class*=Primary] {
   margin-bottom: 6px;
 }
 .adv-battle-stats-gauge-label {
-  font-size: 7px;
+  font-size: 9px;
   color: var(--dmg-mid);
   text-transform: uppercase;
   margin-bottom: 4px;
@@ -280,7 +281,7 @@ button.primary, [class*=primary] button, button[class*=Primary] {
   transition: width 0.4s steps(8);
 }
 .adv-battle-stats-pct {
-  font-size: 8px;
+  font-size: 11px;
   text-align: right;
 }
 
@@ -314,20 +315,20 @@ button.primary, [class*=primary] button, button[class*=Primary] {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
   max-width: 520px;
-  margin: 0 auto 16px;
-  padding: 0 4px;
+  margin: 10px auto 16px;
+  padding: 6px 4px;
 }
 .adv-sentiment-label {
   font-family: var(--font-pixel);
-  font-size: 8px;
+  font-size: 10px;
   color: var(--dmg-darkest);
   white-space: nowrap;
 }
 .adv-sentiment-track {
-  height: 14px;
+  height: 20px;
   background: var(--dmg-dark);
   border: 2px solid var(--dmg-darkest);
   position: relative;
@@ -339,6 +340,15 @@ button.primary, [class*=primary] button, button[class*=Primary] {
   background: linear-gradient(90deg, var(--dmg-dark) 0%, var(--dmg-mid) 100%);
   position: relative;
   transition: width 0.4s steps(8);
+}
+.adv-sentiment-readout {
+  text-align: center;
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  color: var(--dmg-darkest);
+  padding: 2px 0 0;
+  max-width: 520px;
+  margin: 0 auto 4px;
 }
 .adv-sentiment-track::before {
   content: '';
@@ -383,7 +393,7 @@ button.primary, [class*=primary] button, button[class*=Primary] {
 /* ── Dialogue Box ── */
 .adv-dialogue-box {
   width: 520px;
-  height: 144px;
+  height: 156px;
   background: var(--dmg-dark);
   border: 4px solid var(--dmg-darkest);
   box-shadow: 4px 4px 0 var(--dmg-darkest), inset 0 0 0 2px var(--dmg-mid);
@@ -396,7 +406,7 @@ button.primary, [class*=primary] button, button[class*=Primary] {
   cursor: pointer;
 }
 .adv-dialogue-speaker {
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1;
   margin-bottom: 8px;
   text-transform: uppercase;
@@ -407,10 +417,10 @@ button.primary, [class*=primary] button, button[class*=Primary] {
   margin-bottom: 10px;
 }
 .adv-dialogue-body {
-  font-size: 8px;
-  line-height: 1.8;
-  min-height: 72px;
-  max-height: 72px;
+  font-size: 11px;
+  line-height: 1.7;
+  min-height: 84px;
+  max-height: 84px;
   overflow-y: auto;
   white-space: pre-wrap;
   word-break: break-word;
@@ -449,7 +459,7 @@ button.primary, [class*=primary] button, button[class*=Primary] {
   padding: 8px 4px;
   text-align: center;
   font-family: var(--font-pixel);
-  min-height: 52px;
+  min-height: 56px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -475,10 +485,17 @@ button.primary, [class*=primary] button, button[class*=Primary] {
   border-color: var(--dmg-lightest);
 }
 .adv-delib-label {
-  font-size: 6px;
+  font-size: 7px;
   color: var(--dmg-mid);
   text-transform: uppercase;
   line-height: 1.2;
+}
+.adv-delib-analyst {
+  font-size: 8px;
+  color: var(--dmg-lightest);
+  text-transform: uppercase;
+  line-height: 1.2;
+  letter-spacing: 0.05em;
 }
 .adv-delib-label.complete {
   color: var(--dmg-lightest);
@@ -565,6 +582,22 @@ button.primary, [class*=primary] button, button[class*=Primary] {
 }
 .adv-verdict-ruling {
   color: var(--dmg-mid);
+}
+.adv-verdict-details {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  color: var(--dmg-mid);
+  text-align: center;
+  line-height: 1.4;
+  flex-wrap: wrap;
+}
+.adv-verdict-sep {
+  color: var(--dmg-darkest);
+  opacity: 0.4;
 }
 .adv-verdict-prompt {
   font-family: var(--font-pixel);

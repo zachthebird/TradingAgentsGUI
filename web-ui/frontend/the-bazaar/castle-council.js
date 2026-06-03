@@ -242,6 +242,7 @@ function buildScene(){
     +     '<div class="adv-sentiment-track"><div class="adv-sentiment-fill" id="adv-momentum-fill" style="width:50%;"></div></div>'
     +     '<span class="adv-sentiment-label">BULL 🐂</span>'
     +   '</div>'
+    +   '<div class="adv-sentiment-readout" id="adv-sentiment-readout">SENTIMENT · 50% NEUTRAL</div>'
     // Move Flourish
     +   '<div class="adv-move-flourish" id="adv-move-flourish"></div>'
     // Dialogue Box
@@ -256,26 +257,35 @@ function buildScene(){
     +   '</div>'
     // Deliberation Grid (4 analyst report slots)
     +   '<div class="adv-deliberation-grid" id="adv-deliberation-grid">'
-    +     '<div class="adv-deliberation-slot" data-slot="1">'
+    +     '<div class="adv-deliberation-slot" data-slot="1" title="Flint — Market Analyst">'
     +       '<div class="adv-delib-icon"></div>'
+    +       '<div class="adv-delib-analyst">FLINT</div>'
     +       '<div class="adv-delib-label">AWAITING</div>'
     +     '</div>'
-    +     '<div class="adv-deliberation-slot" data-slot="2">'
+    +     '<div class="adv-deliberation-slot" data-slot="2" title="Vera — Sentiment Seer">'
     +       '<div class="adv-delib-icon"></div>'
+    +       '<div class="adv-delib-analyst">VERA</div>'
     +       '<div class="adv-delib-label">AWAITING</div>'
     +     '</div>'
-    +     '<div class="adv-deliberation-slot" data-slot="3">'
+    +     '<div class="adv-deliberation-slot" data-slot="3" title="Reed — News Herald">'
     +       '<div class="adv-delib-icon"></div>'
+    +       '<div class="adv-delib-analyst">REED</div>'
     +       '<div class="adv-delib-label">AWAITING</div>'
     +     '</div>'
-    +     '<div class="adv-deliberation-slot" data-slot="4">'
+    +     '<div class="adv-deliberation-slot" data-slot="4" title="Sage — Fundamentals Scholar">'
     +       '<div class="adv-delib-icon"></div>'
+    +       '<div class="adv-delib-analyst">SAGE</div>'
     +       '<div class="adv-delib-label">AWAITING</div>'
     +     '</div>'
     +   '</div>'
     // Verdict Banner (hidden initially)
     +   '<div class="adv-verdict-banner" id="adv-verdict-banner" style="display:none;">'
     +     '<div class="adv-verdict-headline">THE COUNCIL HAS RULED — <span class="adv-verdict-ruling" id="adv-verdict-ruling">HOLD</span></div>'
+    +     '<div class="adv-verdict-details" id="adv-verdict-details">'
+    +       '<span id="adv-verdict-split">Bull 0% · Bear 0%</span>'
+    +       '<span class="adv-verdict-sep">·</span>'
+    +       '<span id="adv-verdict-rationale">Awaiting council verdict</span>'
+    +     '</div>'
     +     '<div class="adv-sentiment-bar">'
     +       '<span class="adv-sentiment-label">🐻 BEAR</span>'
     +       '<div class="adv-sentiment-track"><div class="adv-sentiment-fill" id="adv-verdict-fill" style="width:50%;"></div></div>'
@@ -480,6 +490,18 @@ function updateMomentumBar(pct){
   advMomentumPct = pct;
   const fill = document.getElementById('adv-momentum-fill');
   if (fill) fill.style.width = pct + '%';
+  // Update numeric readout
+  const readout = document.getElementById('adv-sentiment-readout');
+  if (readout){
+    const net = Math.round(pct - 50);
+    let label;
+    if (net > 15) label = 'BULLISH';
+    else if (net > 5) label = 'LEAN BULL';
+    else if (net < -15) label = 'BEARISH';
+    else if (net < -5) label = 'LEAN BEAR';
+    else label = 'NEUTRAL';
+    readout.textContent = 'SENTIMENT · ' + Math.round(pct) + '% ' + label + '  (Bull ' + Math.round(advBullConviction) + '% | Bear ' + Math.round(advBearConviction) + '%)';
+  }
 }
 
 function boostBullConviction(amount){
@@ -513,6 +535,8 @@ function showVerdictBanner(verdict){
   const banner = document.getElementById('adv-verdict-banner');
   const ruling = document.getElementById('adv-verdict-ruling');
   const fill = document.getElementById('adv-verdict-fill');
+  const splitEl = document.getElementById('adv-verdict-split');
+  const rationaleEl = document.getElementById('adv-verdict-rationale');
 
   if (banner) banner.style.display = '';
   if (ruling) ruling.textContent = verdict.toUpperCase();
@@ -525,6 +549,21 @@ function showVerdictBanner(verdict){
   // HOLD stays at current momentum
   if (fill) fill.style.width = pct + '%';
 
+  // Populate conviction split
+  if (splitEl){
+    splitEl.textContent = 'Council: Bull ' + Math.round(advBullConviction) + '% · Bear ' + Math.round(advBearConviction) + '%';
+  }
+  // Populate rationale from dialogue box text (last analyst testimony)
+  if (rationaleEl){
+    var rationale = 'The council has weighed the evidence and rendered judgment.';
+    var dialogueBody = document.getElementById('adv-dialogue-text');
+    if (dialogueBody && dialogueBody.textContent && dialogueBody.textContent.length > 20){
+      var snippet = dialogueBody.textContent.slice(-120).trim();
+      rationale = snippet + (dialogueBody.textContent.length > 120 ? '…' : '');
+    }
+    rationaleEl.textContent = rationale;
+  }
+
   // Update dialogue box
   const speakerEl = document.getElementById('adv-dialogue-speaker');
   const body = document.getElementById('adv-dialogue-text');
@@ -532,7 +571,7 @@ function showVerdictBanner(verdict){
   const advance = document.getElementById('adv-dialogue-advance');
   if (advTypewriterTimer) { clearTimeout(advTypewriterTimer); advTypewriterTimer = null; }
   if (speakerEl) speakerEl.textContent = 'HIGH JUDGE ALDRIC';
-  if (body) body.textContent = 'The council has rendered its verdict: ' + verdict.toUpperCase() + '.';
+  if (body) body.textContent = 'By decree of the council: ' + verdict.toUpperCase() + '. The ruling is final.';
   if (cursor) cursor.style.display = 'none';
   if (advance) advance.classList.add('adv-visible');
 }
@@ -613,7 +652,15 @@ function showLiveBubble(seatId, text){
 
 function updateTurnCounter(){
   const el = document.getElementById('adv-turn-counter');
-  if (el) el.textContent = 'MESSAGE ' + advTurnCounter + ' 🕯';
+  if (!el) return;
+  // Count completed analysts for progress
+  var completed = Object.values(advAnalystCompleted).filter(Boolean).length;
+  var total = 4;
+  if (completed > 0){
+    el.textContent = 'TESTIMONY ' + completed + '/' + total + ' 🕯';
+  } else {
+    el.textContent = 'TESTIMONY ' + advTurnCounter + ' 🕯';
+  }
 }
 
 // ===== VS INTRO (battle transition) =====
@@ -748,6 +795,8 @@ function resetSeats(){
 
   const momentum = document.getElementById('adv-momentum-fill');
   if (momentum) momentum.style.width = '50%';
+  const readout = document.getElementById('adv-sentiment-readout');
+  if (readout) readout.textContent = 'SENTIMENT · 50% NEUTRAL';
 
   const speakerEl = document.getElementById('adv-dialogue-speaker');
   const body = document.getElementById('adv-dialogue-text');
@@ -805,7 +854,7 @@ function startDeliberation(){
   const dot = document.getElementById('adv-live-dot');
   const txt = document.getElementById('adv-live-text');
   if (dot) { dot.style.background = '#c43f54'; dot.style.boxShadow = '0 0 8px #c43f54'; dot.classList.add('deliberating'); }
-  if (txt) txt.textContent = 'Deliberating';
+  if (txt) txt.textContent = 'The heralds sound the call…';
 
   // Set ticker from page context if available
   const tickerEl = document.getElementById('adv-ticker');
@@ -815,7 +864,11 @@ function startDeliberation(){
   const speakerEl = document.getElementById('adv-dialogue-speaker');
   const body = document.getElementById('adv-dialogue-text');
   if (speakerEl) speakerEl.textContent = 'COUNCIL';
-  if (body) body.textContent = 'The council deliberates...';
+  if (body) body.textContent = 'The council convenes. The scribes prepare the ledgers…';
+
+  // Update turn counter with themed progress
+  const turnEl = document.getElementById('adv-turn-counter');
+  if (turnEl) turnEl.textContent = 'COUNCIL CONVENES 🕯';
 }
 
 function endDeliberation(){
@@ -828,7 +881,10 @@ function endDeliberation(){
   if (txt) txt.textContent = 'Live — Council in session';
 
   const turnCounter = document.getElementById('adv-turn-counter');
-  if (turnCounter) turnCounter.textContent = 'COUNCIL IN SESSION 🕯';
+  if (turnCounter) {
+    var completed = Object.values(advAnalystCompleted).filter(Boolean).length;
+    turnCounter.textContent = 'VERDICT REACHED ⚖️';
+  }
 }
 
 // ===== LIVE SSE WIRING =====
@@ -880,7 +936,29 @@ function installLiveWiring(){
     if (eventType === 'heartbeat') return;
 
     if (eventType === 'status'){
-      const statusText = dataPayload.message || dataPayload.status || '';
+      const rawStatus = dataPayload.message || dataPayload.status || '';
+      // Theme-ify technical status messages
+      const themedMessages = {
+        'building graph': 'The scribes prepare the ledgers…',
+        'graph': 'The council chamber stirs…',
+        'running': 'The council is in session',
+        'streaming': 'Testimony is being heard…',
+        'connecting': 'The council convenes…',
+        'processing': 'The scribes prepare the ledgers…',
+        'initializing': 'The council chamber stirs…',
+        'preparing': 'The heralds sound the call…',
+        'loading': 'The archives are being searched…',
+        'fetching': 'Gathering market intelligence…',
+        'computing': 'The scholars weigh the evidence…',
+        'analyzing': 'The analysts study the charts…',
+      };
+      let statusText = rawStatus;
+      for (const [tech, themed] of Object.entries(themedMessages)){
+        if (rawStatus.toLowerCase().includes(tech)){
+          statusText = themed;
+          break;
+        }
+      }
       const txt = document.getElementById('adv-live-text');
       if (/running/i.test(dataPayload.status||'')){
         if (deliberationActive) endDeliberation();
@@ -1253,6 +1331,7 @@ function buildVerdictAndCarousel(){
       +   '<div><h3>'+a.name+'</h3><div class="rt-report-role">'+a.role+' &middot; '+src.title+'</div></div>'
       + '</div>'
       + '<div class="rt-report-body">'+src.html+'</div>';
+    card.title = a.name + ' — ' + a.role + ' (' + (a.id === 'debater' ? 'Bull' : a.id === 'risk' ? 'Bear' : 'Analyst') + ')';
     const btn = document.createElement('button');
     btn.className = 'rt-read-full';
     btn.innerHTML = 'Read Full Scroll';
