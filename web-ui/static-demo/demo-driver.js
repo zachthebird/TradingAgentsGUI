@@ -74,7 +74,6 @@ function buildSteps(){
     { pause: 900,  type:'status', data:{ message:'Starting analysis for {T} on ' + DEMO_DATE, status:'initializing' } },
     { pause: 1200, type:'status', data:{ message:'Building graph...', status:'building' } },
     { pause: 1700, type:'status', data:{ message:'Graph ready. Resolving pending entries...', status:'preparing' } },
-    { pause: 1500, type:'status', data:{ message:'Graph running — streaming nodes now.', status:'running' } },
 
     // ── research phase: the four analysts testify (solo views) ──
     { pause: 1100, speech:true, type:'message', data:{ node:'Market Analyst',
@@ -91,6 +90,10 @@ function buildSteps(){
 
     { pause: 1500, speech:true, type:'report', data:{ node:'Fundamentals Analyst', section:'fundamentals_report',
       report:'The ledgers gleam: revenue swells 62% year over year, margins hold near 75%, and the war chest brims with gold. Earnings growth of this caliber can carry a princely multiple higher. The foundation is granite.' } },
+
+    // ── signals end of deliberation: council transitions from
+    //     COUNCIL CONVENES → live-in-session state ──
+    { pause: 600,  type:'status', data:{ message:'Graph running — streaming nodes now.', status:'running' } },
 
     // ── the debate: Balthazar (Bull) vs Morwen (Bear), Aldric presiding ──
     { pause: 800, speech:true, type:'message', data:{ node:'aldric',
@@ -309,12 +312,12 @@ function setPhase(phase){
     });
   }
   else if (phase === 'trial'){
-    // A → B (or C → B): hide greeter + solo, show trial chrome,
-    // HIDE verdict chrome (it should only appear after verdict)
+    // A → B (or C → B): hide greeter, show trial chrome,
+    // HIDE verdict chrome (it should only appear after verdict).
+    // adv-solo-screen and adv-battle-screen are council-managed —
+    // we NEVER set inline opacity or display on them.
     var greeter = document.getElementById('adv-greeter');
-    var solo = document.getElementById('adv-solo-screen');
     if (greeter) fadeOut(greeter);
-    if (solo) fadeOut(solo);
     // Hide verdict chrome (may be visible from C→B replay)
     VERDICT_ELEMENTS.forEach(function(id){
       var el = document.getElementById(id);
@@ -322,6 +325,12 @@ function setPhase(phase){
     });
     // Reveal trial elements
     showTrialChrome();
+    // Defensive: clear any lingering inline opacity on council-managed
+    // screens so the cast is visible when the council toggles display.
+    ['adv-solo-screen','adv-battle-screen','adv-vs-overlay','adv-verdict-banner'].forEach(function(id){
+      var el = document.getElementById(id);
+      if (el) el.style.opacity = '';
+    });
   }
   else if (phase === 'verdict'){
     // B → C: reveal post-verdict chrome
@@ -353,9 +362,10 @@ var VERDICT_ELEMENTS = [
 ];
 
 function hideTrialChrome(done){
-  // Hide trial elements + verdict elements + verdict banner + control btns
+  // Hide trial elements + verdict elements + control btns.
+  // adv-verdict-banner is council-managed — we never touch it.
   var allToHide = TRIAL_ELEMENTS.concat(VERDICT_ELEMENTS).concat([
-    'adv-verdict-banner', 'demo-replay-btn', 'demo-new-trial-btn'
+    'demo-replay-btn', 'demo-new-trial-btn'
   ]);
   var remaining = allToHide.length;
   if (remaining === 0){ if (done) done(); return; }
@@ -371,11 +381,13 @@ function hideTrialChrome(done){
       if (remaining <= 0 && done) done();
     }
   });
-  // Reset council-managed elements: solo screen visible, battle screen hidden
-  var solo = document.getElementById('adv-solo-screen');
-  var battle = document.getElementById('adv-battle-screen');
-  if (solo) fadeIn(solo);
-  if (battle) fadeOut(battle);
+  // Reset council-managed to neutral state so they're ready when the
+  // council toggles them. We clear inline opacity (which our fades may
+  // have left) but never write display — the council owns that.
+  ['adv-solo-screen','adv-battle-screen','adv-vs-overlay','adv-verdict-banner'].forEach(function(id){
+    var el = document.getElementById(id);
+    if (el) el.style.opacity = '';
+  });
 }
 
 function showTrialChrome(){
@@ -393,8 +405,7 @@ function showTrialChrome(){
 function showGreeterChrome(){
   var greeter = document.getElementById('adv-greeter');
   if (greeter) fadeIn(greeter);
-  var solo = document.getElementById('adv-solo-screen');
-  if (solo) fadeIn(solo);
+  // adv-solo-screen is council-managed — we never touch its display/opacity.
 }
 
 function revealVerdictChrome(){
