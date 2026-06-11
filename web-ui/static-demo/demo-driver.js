@@ -144,7 +144,7 @@ function buildSteps(){
 // 3. REPLAY ENGINE
 // ════════════════════════════════════════════════════════════
 
-var state = { timer: null, es: null, ticker: 'NVDA', running: false };
+var state = { timer: null, es: null, ticker: 'NVDA', running: false, phase: 'awaiting' };  // 'awaiting' | 'trial' | 'verdict'
 
 function speechText(step){
   var d = step.data || {};
@@ -199,6 +199,9 @@ function run(ticker){
   state.ticker = (ticker || 'NVDA').toUpperCase().replace(/[^A-Z0-9.]/g, '').slice(0, 10) || 'NVDA';
   resetVerdictChrome();
 
+  // Transition to trial phase (handles greeter teardown + trial chrome reveal)
+  setPhase('trial');
+
   // Goes through the council's fetch hook: starts the deliberation
   // overlay, sets the ticker chip, and queues the VS intro.
   window.fetch('./api/analyze?token=demo', {
@@ -222,14 +225,381 @@ function run(ticker){
 }
 
 // ════════════════════════════════════════════════════════════
-// 4. PAGE CHROME — verdict card text, replay button, challenge form
+// 4. STATE MACHINE — three-phase intro flow
+// ════════════════════════════════════════════════════════════
+
+/* fadeIn / fadeOut helpers.
+   show: set display to '', then rAF to opacity 1 to trigger CSS transition.
+   hide: set opacity to 0, then on transitionend set display to 'none'.
+   For elements without a CSS transition, instant toggle. */
+function fadeOut(el, then){
+  if (!el) return;
+  el.style.opacity = '0';
+  // If the element has no transition, call then immediately
+  var hasTransition = window.getComputedStyle(el).transitionDuration !== '0s';
+  if (!hasTransition){
+    el.style.display = 'none';
+    if (then) then();
+    return;
+  }
+  var done = false;
+  function onEnd(){
+    if (done) return;
+    done = true;
+    el.removeEventListener('transitionend', onEnd);
+    el.style.display = 'none';
+    if (then) then();
+  }
+  el.addEventListener('transitionend', onEnd);
+  // Safety timeout in case transitionend doesn't fire
+  setTimeout(function(){
+    if (!done){ onEnd(); }
+  }, 500);
+}
+
+function fadeIn(el, display){
+  if (!el) return;
+  el.style.display = display || '';
+  // Force layout so the browser registers the display change before opacity
+  el.offsetHeight;
+  el.style.opacity = '1';
+}
+
+function setPhase(phase){
+  var prev = state.phase;
+  state.phase = phase;
+
+  if (phase === 'awaiting'){
+    // Non-dialogue status updates can be immediate
+    var cursor = document.getElementById('adv-dialogue-cursor');
+    var advance = document.getElementById('adv-dialogue-advance');
+    if (cursor) cursor.style.display = 'none';
+    if (advance) advance.style.display = 'none';
+    // Status strip
+    var tickerEl = document.getElementById('adv-ticker');
+    var turnEl = document.getElementById('adv-turn-counter');
+    if (tickerEl) tickerEl.textContent = '\u2014';
+    if (turnEl) turnEl.textContent = 'AWAITING CHALLENGE';
+    // Live text
+    var liveText = document.getElementById('adv-live-text');
+    if (liveText) liveText.textContent = 'Awaiting challenge...';
+    // Clear input + focus
+    var input = document.getElementById('adv-greeter-input');
+    if (input){ input.value = ''; input.focus(); }
+    // Safety: clear any stuck loading state from prior transition
+    clearLoadingState();
+
+    // Defer dialogue text to avoid pending council typewriter callbacks
+    // overwriting our greeter text. rAF fires after the next frame, giving
+    // the typewriter engine (which also uses rAF) time to flush.
+    requestAnimationFrame(function(){
+      // Safety follow-up: double-check after another frame in case the
+      // typewriter queued multiple rAF callbacks.
+      requestAnimationFrame(function(){
+        var speaker = document.getElementById('adv-dialogue-speaker');
+        var text = document.getElementById('adv-dialogue-text');
+        if (speaker) speaker.textContent = 'ELDER ALDRIC';
+        if (text) text.textContent = 'Hark, traveler. Which stock shall stand trial before the council this day?';
+      });
+    });
+
+    // B → A or C → A: hide trial + verdict chrome, show greeter + solo
+    hideTrialChrome(function(){
+      showGreeterChrome();
+    });
+  }
+  else if (phase === 'trial'){
+    // A → B (or C → B): hide greeter + solo, show trial chrome,
+    // HIDE verdict chrome (it should only appear after verdict)
+    var greeter = document.getElementById('adv-greeter');
+    var solo = document.getElementById('adv-solo-screen');
+    if (greeter) fadeOut(greeter);
+    if (solo) fadeOut(solo);
+    // Hide verdict chrome (may be visible from C→B replay)
+    VERDICT_ELEMENTS.forEach(function(id){
+      var el = document.getElementById(id);
+      if (el){ el.style.display = 'none'; el.style.opacity = '0'; }
+    });
+    // Reveal trial elements
+    showTrialChrome();
+  }
+  else if (phase === 'verdict'){
+    // B → C: reveal post-verdict chrome
+    var cursor = document.getElementById('adv-dialogue-cursor');
+    var advance = document.getElementById('adv-dialogue-advance');
+    if (cursor) cursor.style.display = 'none';
+    if (advance) advance.style.display = 'none';
+    revealVerdictChrome();
+  }
+}
+
+/* Elements that should be hidden in State A and shown in State B/C.
+   NOTE: adv-battle-screen, adv-solo-screen, adv-vs-overlay, and
+   adv-verdict-banner are managed by castle-council.js — we do NOT
+   include them here. The council toggles them during VS intro/verdict. */
+var TRIAL_ELEMENTS = [
+  'adv-deliberation-grid',
+  'adv-momentum-bar',
+  'adv-sentiment-readout',
+  'adv-move-flourish',
+  'adv-toggle-reports'
+];
+
+/* Elements that should be hidden in States A+B and shown in State C */
+var VERDICT_ELEMENTS = [
+  'rt-verdict-card',
+  'rt-challenge-card',
+  'rt-report-carousel'
+];
+
+function hideTrialChrome(done){
+  // Hide trial elements + verdict elements + verdict banner + control btns
+  var allToHide = TRIAL_ELEMENTS.concat(VERDICT_ELEMENTS).concat([
+    'adv-verdict-banner', 'demo-replay-btn', 'demo-new-trial-btn'
+  ]);
+  var remaining = allToHide.length;
+  if (remaining === 0){ if (done) done(); return; }
+  allToHide.forEach(function(id){
+    var el = document.getElementById(id);
+    if (el){
+      fadeOut(el, function(){
+        remaining--;
+        if (remaining <= 0 && done) done();
+      });
+    } else {
+      remaining--;
+      if (remaining <= 0 && done) done();
+    }
+  });
+  // Reset council-managed elements: solo screen visible, battle screen hidden
+  var solo = document.getElementById('adv-solo-screen');
+  var battle = document.getElementById('adv-battle-screen');
+  if (solo) fadeIn(solo);
+  if (battle) fadeOut(battle);
+}
+
+function showTrialChrome(){
+  TRIAL_ELEMENTS.forEach(function(id){
+    var el = document.getElementById(id);
+    if (el) fadeIn(el);
+  });
+  // Show control buttons
+  ['demo-replay-btn', 'demo-new-trial-btn'].forEach(function(id){
+    var el = document.getElementById(id);
+    if (el) fadeIn(el, 'inline-block');
+  });
+}
+
+function showGreeterChrome(){
+  var greeter = document.getElementById('adv-greeter');
+  if (greeter) fadeIn(greeter);
+  var solo = document.getElementById('adv-solo-screen');
+  if (solo) fadeIn(solo);
+}
+
+function revealVerdictChrome(){
+  // Staggered reveal: verdict card → challenge card → carousel
+  var stagger = [0, 150, 300];
+  VERDICT_ELEMENTS.forEach(function(id, i){
+    var el = document.getElementById(id);
+    if (el){
+      setTimeout(function(){
+        fadeIn(el);
+      }, stagger[i]);
+    }
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+// 5. GREETER ELEMENTS — injected once at boot
+// ════════════════════════════════════════════════════════════
+
+function injectGreeterElements(){
+  // Idempotent guard
+  if (document.getElementById('adv-greeter')) return;
+
+  var dialogueBox = document.getElementById('adv-dialogue-box');
+
+  // --- Greeter input area (after dialogue box) ---
+  if (dialogueBox){
+    var greeter = document.createElement('div');
+    greeter.id = 'adv-greeter';
+    greeter.style.opacity = '1'; // visible on first load
+    greeter.innerHTML =
+      '<div class="adv-greeter-row">' +
+        '<input type="text" id="adv-greeter-input" class="adv-greeter-input"' +
+        '  placeholder="Enter a ticker symbol..." maxlength="10"' +
+        '  autocomplete="off" autocapitalize="characters"' +
+        '  aria-label="Enter a stock ticker symbol">' +
+        '<button type="button" id="adv-greeter-btn" class="adv-greeter-btn">' +
+        '  Summon the Council' +
+        '</button>' +
+      '</div>' +
+      '<button type="button" id="adv-greeter-sample" class="adv-greeter-sample"' +
+      '  aria-label="Watch a sample trial for NVDA stock">' +
+      '  or witness a sample trial (NVDA)' +
+      '</button>' +
+      '<div id="adv-greeter-error" class="adv-greeter-error"' +
+      '  aria-live="polite" style="display:none;"></div>';
+
+    dialogueBox.insertAdjacentElement('afterend', greeter);
+
+    // Wire events
+    var input = document.getElementById('adv-greeter-input');
+    var btn = document.getElementById('adv-greeter-btn');
+    var sample = document.getElementById('adv-greeter-sample');
+
+    function submitTicker(){
+      var val = (input.value || '').trim().toUpperCase();
+      if (!val){
+        showGreeterError('The council requires a ticker symbol.');
+        return;
+      }
+      if (!/^[A-Z]{1,5}(\.[A-Z]{1,3})?$/.test(val)){
+        showGreeterError('A ticker holds only letters and the occasional dot, traveler.');
+        return;
+      }
+      clearGreeterError();
+      setLoadingState(true);
+      run(val);
+    }
+
+    input.addEventListener('keydown', function(e){
+      if (e.key === 'Enter'){
+        e.preventDefault();
+        submitTicker();
+      } else if (e.key === 'Escape'){
+        input.value = '';
+      }
+    });
+
+    // Clear error on any input
+    input.addEventListener('input', function(){
+      if (document.getElementById('adv-greeter-error').style.display !== 'none'){
+        clearGreeterError();
+      }
+      // Restore button state if it was stuck in loading (edge case)
+      if (btn.disabled && state.phase === 'awaiting'){
+        clearLoadingState();
+      }
+    });
+
+    btn.addEventListener('click', function(){
+      if (!btn.disabled) submitTicker();
+    });
+
+    sample.addEventListener('click', function(){
+      clearGreeterError();
+      setLoadingState(true);
+      run('NVDA');
+    });
+  }
+
+  // --- New Trial button (in controls row) ---
+  var controls = document.querySelector('.adv-controls');
+  if (controls && !document.getElementById('demo-new-trial-btn')){
+    var newTrialBtn = document.createElement('button');
+    newTrialBtn.id = 'demo-new-trial-btn';
+    newTrialBtn.className = 'adv-btn';
+    newTrialBtn.type = 'button';
+    newTrialBtn.textContent = 'New Trial';
+    newTrialBtn.style.opacity = '0';
+    newTrialBtn.style.display = 'none';
+    newTrialBtn.addEventListener('click', function(){
+      stop();
+      setPhase('awaiting');
+    });
+    var toggleReports = document.getElementById('adv-toggle-reports');
+    if (toggleReports){
+      controls.insertBefore(newTrialBtn, toggleReports);
+    } else {
+      controls.appendChild(newTrialBtn);
+    }
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// 6. VALIDATION ERROR HANDLING
+// ════════════════════════════════════════════════════════════
+
+var _greeterErrorTimer = null;
+
+function showGreeterError(msg){
+  var errorEl = document.getElementById('adv-greeter-error');
+  var input = document.getElementById('adv-greeter-input');
+  if (!errorEl || !input) return;
+
+  // Clear any existing timer
+  if (_greeterErrorTimer){ clearTimeout(_greeterErrorTimer); _greeterErrorTimer = null; }
+
+  errorEl.textContent = msg;
+  errorEl.style.display = '';
+  errorEl.setAttribute('role', 'alert');
+  input.setAttribute('aria-describedby', 'adv-greeter-error');
+
+  // Shake the input
+  input.classList.add('adv-shake');
+  input.addEventListener('animationend', function onAnimEnd(){
+    input.removeEventListener('animationend', onAnimEnd);
+    input.classList.remove('adv-shake');
+  });
+
+  // Auto-clear after 2.5s
+  _greeterErrorTimer = setTimeout(function(){
+    clearGreeterError();
+  }, 2500);
+}
+
+function clearGreeterError(){
+  var errorEl = document.getElementById('adv-greeter-error');
+  var input = document.getElementById('adv-greeter-input');
+  if (_greeterErrorTimer){ clearTimeout(_greeterErrorTimer); _greeterErrorTimer = null; }
+  if (errorEl){
+    errorEl.style.display = 'none';
+    errorEl.textContent = '';
+    errorEl.removeAttribute('role');
+  }
+  if (input){
+    input.removeAttribute('aria-describedby');
+    input.classList.remove('adv-shake');
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// 7. LOADER STATE (A → B transition)
+// ════════════════════════════════════════════════════════════
+
+function setLoadingState(loading){
+  var btn = document.getElementById('adv-greeter-btn');
+  var input = document.getElementById('adv-greeter-input');
+  var sample = document.getElementById('adv-greeter-sample');
+  if (loading){
+    if (btn){ btn.disabled = true; btn.textContent = 'Summoning...'; }
+    if (input) input.disabled = true;
+    if (sample) sample.style.pointerEvents = 'none';
+  } else {
+    clearLoadingState();
+  }
+}
+
+function clearLoadingState(){
+  var btn = document.getElementById('adv-greeter-btn');
+  var input = document.getElementById('adv-greeter-input');
+  var sample = document.getElementById('adv-greeter-sample');
+  if (btn){ btn.disabled = false; btn.textContent = 'Summon the Council'; }
+  if (input) input.disabled = false;
+  if (sample) sample.style.pointerEvents = '';
+}
+
+// ════════════════════════════════════════════════════════════
+// 8. PAGE CHROME — verdict card text, replay button, challenge form
 // ════════════════════════════════════════════════════════════
 
 function resetVerdictChrome(){
   var vv = document.querySelector('#rt-verdict-card .rt-verdict-value');
-  if (vv) vv.textContent = '—';
+  if (vv) vv.textContent = '\u2014';
   var vt = document.getElementById('rt-verdict-ticker');
-  if (vt) vt.textContent = '—';
+  if (vt) vt.textContent = '\u2014';
 }
 
 function applyVerdictChrome(){
@@ -238,12 +608,15 @@ function applyVerdictChrome(){
   var vt = document.getElementById('rt-verdict-ticker');
   if (vt) vt.textContent = state.ticker;
   var tc = document.getElementById('adv-turn-counter');
-  if (tc) tc.textContent = 'VERDICT REACHED ⚖️';
+  if (tc) tc.textContent = 'VERDICT REACHED \u2696\uFE0F';
   // The council snips its rationale from whatever the typewriter has shown
   // so far; if the tab was backgrounded (throttled timers) that can be the
   // generic fallback. Pin the judge's closing words deterministically.
   var rEl = document.getElementById('adv-verdict-rationale');
-  if (rEl) rEl.textContent = 'The forge burns hot, the ledgers are sound, and fear is the only discount on offer. — Elder Aldric';
+  if (rEl) rEl.textContent = 'The forge burns hot, the ledgers are sound, and fear is the only discount on offer. \u2014 Elder Aldric';
+
+  // Transition to verdict phase
+  setPhase('verdict');
 }
 
 function wireChrome(){
@@ -260,8 +633,15 @@ function wireChrome(){
     btn.className = 'adv-btn';
     btn.type = 'button';
     btn.textContent = 'Replay';
+    btn.style.opacity = '0';
+    btn.style.display = 'none';
     btn.addEventListener('click', function(){ run(state.ticker); });
-    controls.insertBefore(btn, document.getElementById('adv-toggle-reports'));
+    var toggleReports = document.getElementById('adv-toggle-reports');
+    if (toggleReports){
+      controls.insertBefore(btn, toggleReports);
+    } else {
+      controls.appendChild(btn);
+    }
   }
 
   // The council's "Challenge another stock" card fills the hidden
@@ -280,7 +660,86 @@ function wireChrome(){
 }
 
 // ════════════════════════════════════════════════════════════
-// 5. BOOT — wait for the council to mount, then auto-play once
+// 9. INITIAL VISIBILITY — hide trial chrome on first paint
+//    Must run BEFORE the council mounts so elements are hidden
+//    by the time they appear in the DOM.
+// ════════════════════════════════════════════════════════════
+
+(function initVisibility(){
+  // These IDs are created by the council at mount time. We use a
+  // MutationObserver to catch them as they appear and hide them
+  // before the first paint.
+  var HIDE_ON_START = [
+    'adv-deliberation-grid',
+    'adv-momentum-bar',
+    'adv-sentiment-readout',
+    'adv-move-flourish',
+    'adv-toggle-reports',
+    'rt-verdict-card',
+    'rt-challenge-card',
+    'rt-report-carousel'
+  ];
+
+  var hidden = {};
+  HIDE_ON_START.forEach(function(id){ hidden[id] = false; });
+
+  var observer = new MutationObserver(function(mutations){
+    mutations.forEach(function(mutation){
+      mutation.addedNodes.forEach(function(node){
+        if (node.nodeType !== 1) return; // not an element
+        // Check the node itself
+        checkNode(node);
+        // Check descendants
+        if (node.querySelectorAll){
+          HIDE_ON_START.forEach(function(id){
+            if (!hidden[id]){
+              var el = node.querySelector('#' + id);
+              if (el){ hideNow(el, id); }
+            }
+          });
+        }
+      });
+    });
+  });
+
+  function checkNode(el){
+    if (!el || !el.id) return;
+    if (HIDE_ON_START.indexOf(el.id) !== -1 && !hidden[el.id]){
+      hideNow(el, el.id);
+    }
+  }
+
+  function hideNow(el, id){
+    el.style.display = 'none';
+    el.style.opacity = '0';
+    hidden[id] = true;
+  }
+
+  observer.observe(document.documentElement, { childList: true, subtree: true });
+
+  // Also hide them on DOMContentLoaded in case they were already in the DOM
+  function hideExisting(){
+    HIDE_ON_START.forEach(function(id){
+      if (!hidden[id]){
+        var el = document.getElementById(id);
+        if (el){ hideNow(el, id); }
+      }
+    });
+  }
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', hideExisting);
+  } else {
+    hideExisting();
+  }
+
+  // Store for cleanup
+  window.__demoInitObserver = observer;
+  window.__demoInitHidden = hidden;
+})();
+
+// ════════════════════════════════════════════════════════════
+// 10. BOOT — wait for the council to mount, then show greeter
 // ════════════════════════════════════════════════════════════
 
 function boot(){
@@ -288,7 +747,11 @@ function boot(){
   (function poll(){
     if (window.__sseHookInstalled && document.getElementById('adv-arena')){
       wireChrome();
-      setTimeout(function(){ run('NVDA'); }, 700);
+      injectGreeterElements();
+      setPhase('awaiting');
+      // Focus the input
+      var input = document.getElementById('adv-greeter-input');
+      if (input) input.focus();
       return;
     }
     waited += 120;
