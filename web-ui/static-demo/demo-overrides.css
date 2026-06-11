@@ -171,19 +171,13 @@
 #adv-deliberation-grid,
 #adv-momentum-bar,
 #adv-sentiment-readout,
-#adv-move-flourish,
-#adv-battle-screen {
+#adv-move-flourish {
   transition: opacity 0.3s ease-in;
 }
 
 /* A → B: greeter fades out */
 #adv-greeter {
   transition: opacity 0.2s ease-out;
-}
-
-/* A → B: solo screen fades out */
-#adv-solo-screen {
-  transition: opacity 0.25s ease-out;
 }
 
 /* A → B: control buttons fade in */
