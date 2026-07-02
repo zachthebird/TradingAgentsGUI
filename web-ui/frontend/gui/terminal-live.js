@@ -520,6 +520,7 @@
       '<div class="t98-form-row"><label>Depth</label><select class="t98-select" id="t98-f-depth">' +
         '<option value="standard" selected>STANDARD — 1 DEBATE ROUND</option>' +
         '<option value="deep">DEEP — 2 DEBATE ROUNDS</option>' +
+        '<option value="exhaustive">EXHAUSTIVE — 5 ROUNDS (CLI DEEP, SLOW+COSTLY)</option>' +
         '<option value="quick">QUICK — NO DEBATE ROUNDS</option></select></div>' +
       '<div class="t98-form-row"><label>Analysts</label>' +
         ['market', 'social', 'news', 'fundamentals'].map(function (a) {

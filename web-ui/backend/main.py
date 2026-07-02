@@ -187,8 +187,10 @@ class AnalyzeRequest(BaseModel):
     @field_validator("research_depth")
     @classmethod
     def validate_depth(cls, v: str) -> str:
-        if v not in ("standard", "deep", "quick"):
-            raise ValueError(f"Invalid research_depth: {v!r}. Must be 'standard', 'deep', or 'quick'.")
+        if v not in ("standard", "deep", "quick", "exhaustive"):
+            raise ValueError(
+                f"Invalid research_depth: {v!r}. Must be 'quick', 'standard', 'deep', or 'exhaustive'."
+            )
         return v
 
 
@@ -294,6 +296,12 @@ def _build_config(request: AnalyzeRequest) -> Dict[str, Any]:
     if request.research_depth == "deep":
         cfg["max_debate_rounds"] = 2
         cfg["max_risk_discuss_rounds"] = 2
+    elif request.research_depth == "exhaustive":
+        # CLI-parity "Deep": the CLI wizard's deepest setting runs 5
+        # debate + 5 risk rounds (cli/main.py feeds the raw selection
+        # into both) — long and comparatively expensive.
+        cfg["max_debate_rounds"] = 5
+        cfg["max_risk_discuss_rounds"] = 5
     elif request.research_depth == "quick":
         # Minimal debate: no back-and-forth, just first-pass analysis
         cfg["max_debate_rounds"] = 0
@@ -621,7 +629,7 @@ async def config_defaults():
         "deep_think_llm": DEFAULT_CONFIG.get("deep_think_llm"),
         "quick_think_llm": DEFAULT_CONFIG.get("quick_think_llm"),
         "output_language": DEFAULT_CONFIG.get("output_language"),
-        "research_depth_rounds": {"quick": 0, "standard": 1, "deep": 2},
+        "research_depth_rounds": {"quick": 0, "standard": 1, "deep": 2, "exhaustive": 5},
         "providers_with_keys": sorted(
             p for p, var in PROVIDER_KEY_ENV.items() if os.environ.get(var)
         ),
