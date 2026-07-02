@@ -558,9 +558,33 @@
       this.textContent = (open ? '▸' : '▾') + ' COUNCIL CONFIG';
     });
     // Placeholders show the server's effective defaults (mirrors the
-    // CLI wizard's provider/model questions).
+    // CLI wizard's provider/model questions). Guests get a slimmer desk:
+    // no advanced overrides, depth capped, remaining runs shown.
     fetchServerDefaults(function (d) {
       if (!d) return;
+      if (d.tier === 'guest') {
+        var advBtn = document.getElementById('t98-f-advtoggle');
+        if (advBtn && advBtn.parentNode) advBtn.parentNode.style.display = 'none';
+        var advPanel = document.getElementById('t98-f-adv');
+        if (advPanel) advPanel.style.display = 'none';
+        var depth = document.getElementById('t98-f-depth');
+        if (depth) {
+          Array.prototype.slice.call(depth.options).forEach(function (o) {
+            if (o.value !== 'standard' && o.value !== 'quick') o.remove();
+          });
+        }
+        var errEl = document.getElementById('t98-f-err');
+        if (errEl && d.limits) {
+          errEl.textContent = 'GUEST DESK · ' + d.limits.daily_remaining + '/' + d.limits.daily_cap +
+            ' RUNS LEFT TODAY · DEPTH CAPPED AT STANDARD';
+          errEl.style.color = 'var(--t98-ink-soft)';
+        }
+        if (!S.guestChip) {
+          S.guestChip = true;
+          D.title.innerHTML += ' <b>//</b> GUEST DESK';
+        }
+        return;
+      }
       var map = { 't98-f-deepllm': d.deep_think_llm, 't98-f-quickllm': d.quick_think_llm, 't98-f-lang': d.output_language };
       Object.keys(map).forEach(function (id) {
         var elx = document.getElementById(id);

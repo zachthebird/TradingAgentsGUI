@@ -78,6 +78,25 @@ logger.info("RESULTS_DIR resolved to %s", RESULTS_DIR)
 # ── auth ───────────────────────────────────────────────────────────────
 API_TOKEN = os.getenv("TRADINGAGENTS_API_TOKEN", "")
 
+# Guest tier (Tier C "live desk"): a second, shareable passcode with hard
+# server-side guardrails.  Guests cannot spend beyond the clamps below no
+# matter what the request body claims.
+GUEST_TOKEN = os.getenv("TRADINGAGENTS_GUEST_TOKEN", "")
+GUEST_DAILY_CAP = int(os.getenv("TRADINGAGENTS_GUEST_DAILY_CAP", "8"))
+GUEST_COOLDOWN_SECONDS = int(os.getenv("TRADINGAGENTS_GUEST_COOLDOWN", "90"))
+# Optional cheap/free model routing for guest runs (e.g. provider=google
+# with a free-tier flash model).  Unset → server defaults.
+GUEST_PROVIDER = os.getenv("TRADINGAGENTS_GUEST_PROVIDER", "")
+GUEST_DEEP_LLM = os.getenv("TRADINGAGENTS_GUEST_DEEP_LLM", "")
+GUEST_QUICK_LLM = os.getenv("TRADINGAGENTS_GUEST_QUICK_LLM", "")
+
+# Guest accounting (in-memory; resets on service restart, which is fine
+# for a personal desk — the cap is a spend brake, not billing).
+_guest_lock = threading.Lock()
+_guest_day: str = ""
+_guest_runs_today: int = 0
+_guest_last_submit: float = 0.0
+
 class TokenVerificationResponse(BaseModel):
     valid: bool
 
@@ -110,15 +129,21 @@ class BearerAuthMiddleware(BaseHTTPMiddleware):
 
         # Token not configured — allow all (local dev / LAN mode).
         if not API_TOKEN:
+            request.state.tier = "admin"
             return await call_next(request)
 
-        # Query-param token (needed by browser EventSource for SSE).
-        if request.query_params.get("token", "") == API_TOKEN:
+        # Resolve the presented token to a tier.  The guest passcode is
+        # shareable; its requests get hard-clamped in /analyze.
+        presented = request.query_params.get("token", "")
+        if not presented:
+            auth = request.headers.get("Authorization", "")
+            if auth.startswith("Bearer "):
+                presented = auth[len("Bearer "):]
+        if presented == API_TOKEN:
+            request.state.tier = "admin"
             return await call_next(request)
-
-        # Standard Authorization header.
-        auth = request.headers.get("Authorization", "")
-        if auth.startswith("Bearer ") and auth[len("Bearer "):] == API_TOKEN:
+        if GUEST_TOKEN and presented == GUEST_TOKEN:
+            request.state.tier = "guest"
             return await call_next(request)
 
         return JSONResponse(
@@ -619,12 +644,29 @@ async def verify_token():
 
 
 @app.get("/config/defaults")
-async def config_defaults():
+async def config_defaults(request: Request):
     """Effective server defaults for the GUI's advanced summon form.
 
     Non-secret values only — model names and provider, never keys.
+    Guests get their tier + limits instead of server internals.
     """
+    tier = getattr(request.state, "tier", "admin")
+    if tier == "guest":
+        with _guest_lock:
+            remaining = max(0, GUEST_DAILY_CAP - _guest_runs_today) \
+                if _guest_day == date_type.today().isoformat() else GUEST_DAILY_CAP
+        return {
+            "tier": "guest",
+            "research_depth_rounds": {"quick": 0, "standard": 1},
+            "limits": {
+                "depth_max": "standard",
+                "daily_cap": GUEST_DAILY_CAP,
+                "daily_remaining": remaining,
+                "cooldown_seconds": GUEST_COOLDOWN_SECONDS,
+            },
+        }
     return {
+        "tier": "admin",
         "llm_provider": DEFAULT_CONFIG.get("llm_provider"),
         "deep_think_llm": DEFAULT_CONFIG.get("deep_think_llm"),
         "quick_think_llm": DEFAULT_CONFIG.get("quick_think_llm"),
@@ -637,13 +679,29 @@ async def config_defaults():
 
 
 @app.post("/analyze", response_model=AnalyzeResponse)
-async def analyze(req: AnalyzeRequest):
+async def analyze(req: AnalyzeRequest, request: Request):
     """Kick off a new analysis.  Returns immediately with a ``job_id``.
 
     Validation (ticker format, date range, analyst names) is performed
     by the Pydantic model.  A pre-flight API-key check ensures the
-    required credentials are present before the job starts.
+    required credentials are present before the job starts.  Guest-tier
+    requests are hard-clamped server-side regardless of the body.
     """
+    tier = getattr(request.state, "tier", "admin")
+    if tier == "guest":
+        # Clamp the request FIRST: guests never choose models, providers,
+        # endpoints, output language, or expensive depths — no matter what
+        # they sent. output_language is free-form and flows into every
+        # agent's prompt, so it must be neutralized too (prompt-injection
+        # + token-inflation vector).
+        req.llm_provider = GUEST_PROVIDER or None
+        req.deep_think_llm = GUEST_DEEP_LLM or None
+        req.quick_think_llm = GUEST_QUICK_LLM or None
+        req.backend_url = None
+        req.output_language = None
+        if req.research_depth not in ("quick", "standard"):
+            req.research_depth = "standard"
+
     # ── pre-flight: API key for the provider this request selects ─────
     provider = (req.llm_provider or DEFAULT_CONFIG.get("llm_provider", "")).lower()
     key_var = PROVIDER_KEY_ENV.get(provider)
@@ -654,8 +712,34 @@ async def analyze(req: AnalyzeRequest):
             f"variable {key_var}. Set it in the project .env file.",
         )
 
+    # ── guest accounting — AFTER preflight so a 503 never burns a run ──
+    if tier == "guest":
+        global _guest_day, _guest_runs_today, _guest_last_submit
+        import time as _time
+        with _guest_lock:
+            today = date_type.today().isoformat()
+            if _guest_day != today:
+                _guest_day = today
+                _guest_runs_today = 0
+            if _guest_runs_today >= GUEST_DAILY_CAP:
+                raise HTTPException(429, "The guest desk has hit today's run limit. Come back tomorrow.")
+            wait = GUEST_COOLDOWN_SECONDS - (_time.time() - _guest_last_submit)
+            if wait > 0:
+                raise HTTPException(429, f"The guest desk is cooling down — try again in {int(wait) + 1}s.")
+            if any(j.status == "running" and getattr(j, "tier", "admin") == "guest" for j in _jobs.values()):
+                raise HTTPException(429, "Another guest run is already in session. One council at a time.")
+            _guest_runs_today += 1
+            _guest_last_submit = _time.time()
+        # uvicorn's log config swallows app loggers — use its namespace so
+        # the guest audit trail lands in the service log.
+        logging.getLogger("uvicorn.error").info(
+            "Guest run accepted: ticker=%s depth=%s (run %d/%d today)",
+            req.ticker, req.research_depth, _guest_runs_today, GUEST_DAILY_CAP,
+        )
+
     job_id = str(uuid.uuid4())[:8]
     job = Job(job_id, req.ticker, req.date)
+    job.tier = tier
     _jobs[job_id] = job
 
     thread = threading.Thread(
