@@ -191,8 +191,8 @@ body.t98-mode { overflow: hidden; background: var(--t98-bg0); }
   width: 218px;
   height: 246px;
   object-fit: cover;
-  object-position: 50% 14%; /* anime cast: keep faces in the crop */
-  image-rendering: auto;
+  object-position: 50% 10%; /* keep faces in the crop */
+  image-rendering: pixelated; /* pixel-art cast upscales crisp, not smeared */
   filter: saturate(0.95) contrast(1.03);
 }
 .t98-advisor.t98-speaking .t98-portrait-bezel {

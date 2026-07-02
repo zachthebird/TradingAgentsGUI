@@ -25,18 +25,19 @@
   'use strict';
 
   /* ── cast + pipeline maps ─────────────────────────────────────── */
-  // Anime PC-98 cast (design/pc98-cast/, sliced from pc98-cast-main.png).
+  // Anime PC-98 cast (design/pc98-cast/, sliced from the finance-role
+  // panel of pc98-asset-sheet-finance.png — sheet roles in comments).
   // Seat SEMANTICS mirror the dfaa5fa map — only the skin changed.
   // Painterly castle cast (design/comic-cast/) still serves the ADV view.
   var CAST = {
-    market:       { name: 'Amy',     role: 'Market Analyst',       img: 'amy.png' },
-    social:       { name: 'Mika',    role: 'Sentiment Analyst',    img: 'mika.png' },
-    news:         { name: 'Yuri',    role: 'News Analyst',         img: 'yuri.png' },
-    fundamentals: { name: 'Kenji',   role: 'Fundamentals Analyst', img: 'kenji.png' },
-    bull:         { name: 'Takeshi', role: 'Bull Researcher',      img: 'takeshi.png' },
-    bear:         { name: 'Reiko',   role: 'Bear Researcher',      img: 'reiko.png' },
-    trader:       { name: 'Ryu',     role: 'Trader',               img: 'ryu.png' },
-    judge:        { name: 'Sato',    role: 'Portfolio Manager',    img: 'sato.png' },
+    market:       { name: 'Amy',     role: 'Market Analyst',       img: 'amy.png' },     // Chief Analyst
+    social:       { name: 'Natsumi', role: 'Sentiment Analyst',    img: 'natsumi.png' }, // Investor Relations Dir.
+    news:         { name: 'Satomi',  role: 'News Analyst',         img: 'satomi.png' },  // Financial News Anchor
+    fundamentals: { name: 'Misaki',  role: 'Fundamentals Analyst', img: 'misaki.png' },  // Equity Research Lead
+    bull:         { name: 'Reika',   role: 'Bull Researcher',      img: 'reika.png' },   // Hedge Fund Manager
+    bear:         { name: 'Aoi',     role: 'Bear Researcher',      img: 'aoi.png' },     // Risk Analyst
+    trader:       { name: 'Chika',   role: 'Trader',               img: 'chika.png' },   // Quant Trader
+    judge:        { name: 'Sabrina', role: 'Portfolio Manager',    img: 'sabrina.png' }, // Portfolio Manager
   };
   var CAST_DIR = 'design/pc98-cast/';
 
