@@ -1,0 +1,222 @@
+/* ============================================================
+   CASTLE FX — fx.css
+   Cinematic layer for the Round Table demo: WebGL backdrop
+   stacking, CRT device treatment, vignette, title sequence,
+   chronicle card reveals. Purely additive — castle.css and
+   demo-overrides.css are never modified.
+   ============================================================ */
+
+/* ── 1. Stacking: WebGL canvas behind, page content above ── */
+#fx-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  display: block;
+  pointer-events: none;
+}
+
+#debate-scene-root,
+#rt-verdict-card,
+#rt-challenge-card,
+#rt-report-carousel,
+#root {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── 2. Cinematic vignette (above content, never interactive) ── */
+#fx-vignette {
+  position: fixed;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at 50% 36%,
+    transparent 52%,
+    rgba(8, 10, 18, 0.18) 78%,
+    rgba(8, 10, 18, 0.42) 100%
+  );
+}
+
+/* ── 3. CRT treatment on the handheld ── */
+.fx-crt {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      rgba(10, 14, 8, 0.13) 0px,
+      rgba(10, 14, 8, 0.13) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+  mix-blend-mode: multiply;
+  opacity: 0.55;
+  animation: fx-crt-flicker 4.6s steps(60) infinite;
+}
+
+/* phosphor breathing — barely there, sells the "powered screen" */
+@keyframes fx-crt-flicker {
+  0%, 100% { opacity: 0.55; }
+  7%   { opacity: 0.50; }
+  9%   { opacity: 0.58; }
+  36%  { opacity: 0.53; }
+  64%  { opacity: 0.57; }
+  81%  { opacity: 0.51; }
+}
+
+/* soft phosphor glow hugging the arena bezel */
+.fx-glow {
+  position: absolute;
+  inset: 0;
+  z-index: 29;
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 0 34px rgba(155, 188, 15, 0.10),
+    inset 0 0 6px rgba(155, 188, 15, 0.16);
+}
+
+/* CRT power-on sweep — first trial only */
+@keyframes fx-poweron {
+  0%   { filter: brightness(3.2) saturate(0.2); transform: scaleY(0.012); }
+  38%  { filter: brightness(2.2) saturate(0.4); transform: scaleY(0.012); }
+  62%  { filter: brightness(1.6) saturate(0.7); transform: scaleY(1.04); }
+  100% { filter: brightness(1) saturate(1); transform: scaleY(1); }
+}
+.fx-poweron {
+  animation: fx-poweron 0.46s cubic-bezier(0.2, 0.9, 0.25, 1) 1;
+  transform-origin: 50% 50%;
+}
+
+/* ── 4. Title sequence ── */
+#fx-title {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  background: radial-gradient(ellipse at 50% 42%, #141a2b 0%, #0a0e18 72%);
+  cursor: pointer;
+  transition: opacity 0.55s ease, visibility 0.55s;
+}
+#fx-title.fx-title-leaving {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.fx-title-rule {
+  width: 120px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #d9b35a 30%, #d9b35a 70%, transparent);
+  opacity: 0;
+  animation: fx-fadein 0.7s ease 0.25s forwards;
+}
+
+.fx-title-name {
+  position: relative;
+  overflow: hidden;
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(15px, 3.4vw, 27px);
+  letter-spacing: 0.34em;
+  text-indent: 0.34em; /* optically recenter tracked text */
+  color: #efe2c4;
+  text-align: center;
+  text-shadow: 0 0 22px rgba(217, 179, 90, 0.35);
+  opacity: 0;
+  animation: fx-title-in 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.42s forwards;
+}
+
+/* light sweep across the title */
+.fx-title-name::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -65%;
+  width: 45%;
+  background: linear-gradient(105deg, transparent, rgba(242, 199, 97, 0.34), transparent);
+  animation: fx-sweep 1.15s ease 1.05s 1;
+}
+
+.fx-title-sub {
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(6px, 1.15vw, 9px);
+  letter-spacing: 0.42em;
+  text-indent: 0.42em;
+  color: #8a93a8;
+  text-transform: uppercase;
+  opacity: 0;
+  animation: fx-fadein 0.8s ease 1.0s forwards;
+}
+
+.fx-title-hint {
+  position: absolute;
+  bottom: 36px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  letter-spacing: 0.3em;
+  color: #4e5670;
+  opacity: 0;
+  animation: fx-fadein 0.8s ease 1.6s forwards, fx-pulse 2.2s ease 2.4s infinite;
+}
+
+@keyframes fx-title-in {
+  from { opacity: 0; transform: translateY(14px); letter-spacing: 0.55em; }
+  to   { opacity: 1; transform: translateY(0);    letter-spacing: 0.34em; }
+}
+@keyframes fx-sweep {
+  to { left: 120%; }
+}
+@keyframes fx-fadein {
+  to { opacity: 1; }
+}
+@keyframes fx-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
+}
+
+/* ── 5. Chronicle scroll cards: staggered first-view reveal ── */
+.fx-card-hidden {
+  opacity: 0;
+  transform: translateY(16px);
+}
+.fx-card-shown {
+  opacity: 1;
+  transform: none;
+  transition: opacity 0.55s ease, transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ── 6. Device settle-in on first paint ── */
+@keyframes fx-settle {
+  from { opacity: 0; transform: translateY(14px) scale(0.988); }
+  to   { opacity: 1; transform: none; }
+}
+.fx-settle {
+  animation: fx-settle 0.7s cubic-bezier(0.16, 1, 0.3, 1) 1;
+}
+
+/* ── 7. Accessibility + degradation ── */
+@media (prefers-reduced-motion: reduce) {
+  #fx-canvas, #fx-title { display: none !important; }
+  .fx-crt { animation: none; }
+  .fx-settle, .fx-poweron { animation: none; }
+  .fx-card-hidden { opacity: 1; transform: none; }
+}
+
+@media (max-width: 700px) {
+  .fx-crt { opacity: 0.4; }
+  #fx-vignette {
+    background: radial-gradient(
+      ellipse at 50% 36%,
+      transparent 58%,
+      rgba(8, 10, 18, 0.30) 100%
+    );
+  }
+}
