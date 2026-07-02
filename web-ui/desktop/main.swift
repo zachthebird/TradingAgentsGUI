@@ -9,6 +9,36 @@ import WebKit
 let GUI_URL = "http://localhost:8000/gui/"
 let HEALTH_URL = "http://localhost:8000/health"
 let SERVICE = "ai.zachbird.tradingagents-app"
+let ENV_FILE = NSString(string: "~/Desktop/TradingAgents/.env").expandingTildeInPath
+let LOG_FILE = NSString(string: "~/Library/Logs/TradingAgentsGUI.log").expandingTildeInPath
+
+func appLog(_ msg: String) {
+    let line = "\(Date()) \(msg)\n"
+    if let data = line.data(using: .utf8) {
+        if FileManager.default.fileExists(atPath: LOG_FILE),
+           let h = FileHandle(forWritingAtPath: LOG_FILE) {
+            h.seekToEndOfFile(); h.write(data); h.closeFile()
+        } else {
+            try? data.write(to: URL(fileURLWithPath: LOG_FILE))
+        }
+    }
+}
+
+// The desktop app is the trusted local client: read the API token from
+// the project .env and pre-seed the page's localStorage so the web
+// token gate never appears here.
+func apiTokenFromEnv() -> String? {
+    guard let raw = try? String(contentsOfFile: ENV_FILE, encoding: .utf8) else { return nil }
+    for line in raw.split(separator: "\n") {
+        let t = line.trimmingCharacters(in: .whitespaces)
+        if t.hasPrefix("TRADINGAGENTS_API_TOKEN=") {
+            let v = String(t.dropFirst("TRADINGAGENTS_API_TOKEN=".count))
+                .trimmingCharacters(in: CharacterSet(charactersIn: "\"' "))
+            return v.isEmpty ? nil : v
+        }
+    }
+    return nil
+}
 
 func serverUp() -> Bool {
     guard let url = URL(string: HEALTH_URL) else { return false }
@@ -50,6 +80,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKDown
 
         let config = WKWebViewConfiguration()
         config.preferences.setValue(true, forKey: "developerExtrasEnabled")
+        if let token = apiTokenFromEnv(),
+           let json = try? JSONSerialization.data(withJSONObject: [token]),
+           let arr = String(data: json, encoding: .utf8) {
+            // ["<token>"] → safe JS string literal via [0]
+            let js = "try { localStorage.setItem('tradingagents_token', (\(arr))[0]); } catch (e) {}"
+            config.userContentController.addUserScript(
+                WKUserScript(source: js, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+            appLog("token pre-seeded from .env")
+        } else {
+            appLog("no token found in .env — web gate will handle auth")
+        }
         webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = self
         if #available(macOS 13.3, *) { webView.isInspectable = true }
@@ -174,6 +215,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKDown
 
     func downloadDidFinish(_ download: WKDownload) {
         NSSound(named: "Glass")?.play()
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        webView.evaluateJavaScript(
+            "(localStorage.getItem('tradingagents_token') ? 'token:SET' : 'token:MISSING') + " +
+            "(document.body.innerText.indexOf('Access TradingAgentsGUI') >= 0 ? ' gate:VISIBLE' : ' gate:HIDDEN')"
+        ) { result, _ in
+            if let s = result as? String { appLog("page loaded — \(s)") }
+        }
     }
 }
 

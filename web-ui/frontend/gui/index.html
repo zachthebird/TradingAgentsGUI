@@ -986,7 +986,7 @@ function TokenGate({ onUnlock, apiBase }) {
                onChange={e => { setInput(e.target.value); setError(''); }}
                autoFocus disabled={validating} />
         <button type="submit" disabled={validating}>
-          {validating ? 'Verifying...' : 'Enter the Marketplace'}
+          {validating ? 'Verifying...' : 'Unseal the Terminal'}
         </button>
         {error && <div className="token-error">{error}</div>}
       </form>
@@ -1874,7 +1874,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
      ?v= cache-buster: bump when assets change (stale-tab caching bit us twice) -->
 <script>
 (function () {
-  var V = '20260704c';
+  var V = '20260704d';
   // One-time migration from the legacy "bazaar_*" localStorage keys so
   // stored tokens / UI preferences survive the rename.
   try {
