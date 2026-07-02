@@ -1867,11 +1867,46 @@ function App() {
    ═══════════════════════════════════════════════════ */
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>
-<!-- Traders of the Round Table — castle UI pack (drop-in) -->
-<!-- ?v= cache-buster: bump when castle assets change (stale-tab caching bit us twice) -->
-<link rel="stylesheet" href="castle.css?v=20260702a">
-<script defer src="castle-council.js?v=20260702a"></script>
-<script defer src="castle-audio.js?v=20260702a"></script>
-<script defer src="castle-share.js?v=20260702a"></script>
+<!-- UI mode loader: 'terminal' (PC-98 live terminal, default) or 'adv' (castle/ADV pack). -->
+<!-- Terminal mode loads ONLY terminal.css+terminal-live.js — the castle pack's body-wide
+     rebrand observer, unscoped !important styles, and SSE hooks stay out of the way.
+     Switch: ?ui=adv / ?ui=terminal, persisted in localStorage.bazaar_ui_mode.
+     ?v= cache-buster: bump when assets change (stale-tab caching bit us twice) -->
+<script>
+(function () {
+  var V = '20260703f';
+  var mode = 'terminal';
+  try {
+    var forced = new URLSearchParams(location.search).get('ui');
+    if (forced === 'adv' || forced === 'terminal') localStorage.setItem('bazaar_ui_mode', forced);
+    mode = localStorage.getItem('bazaar_ui_mode') || 'terminal';
+  } catch (e) {}
+  function css(href) { document.write('<link rel="stylesheet" href="' + href + '">'); }
+  function js(src) { document.write('<scr' + 'ipt defer src="' + src + '"></scr' + 'ipt>'); }
+  if (mode === 'adv') {
+    css('castle.css?v=' + V);
+    js('castle-council.js?v=' + V);
+    js('castle-audio.js?v=' + V);
+    js('castle-share.js?v=' + V);
+    document.addEventListener('DOMContentLoaded', function () {
+      var b = document.createElement('button');
+      b.textContent = '▶ PC-98 TERMINAL';
+      b.title = 'Switch to the PC-98 live terminal UI';
+      b.style.cssText = 'position:fixed;bottom:10px;right:10px;z-index:800;background:#0a2836;color:#8ff5ef;border:1px solid #43d9d9;font-family:monospace;font-size:11px;padding:4px 10px;cursor:pointer;opacity:.65';
+      b.onmouseenter = function () { b.style.opacity = '1'; };
+      b.onmouseleave = function () { b.style.opacity = '.65'; };
+      b.onclick = function () {
+        try { localStorage.setItem('bazaar_ui_mode', 'terminal'); } catch (e) {}
+        location.reload();
+      };
+      document.body.appendChild(b);
+    });
+  } else {
+    css('https://fonts.googleapis.com/css2?family=DotGothic16&family=VT323&display=swap');
+    css('terminal.css?v=' + V);
+    js('terminal-live.js?v=' + V);
+  }
+})();
+</script>
 </body>
 </html>
