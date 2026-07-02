@@ -4,7 +4,7 @@
    deep teal-navy CRT backdrop, cream dialog windows with dark-brown ink,
    tan bevel buttons, cyan window chrome, magenta/green chart phosphor.
    Namespace: t98- (classes), t98* (keyframes). Loaded INSTEAD of
-   castle.css when localStorage.bazaar_ui_mode === 'terminal'.
+   castle.css when localStorage.tradingagents_ui_mode === 'terminal'.
    ═══════════════════════════════════════════════════════════════════ */
 
 :root {
@@ -439,7 +439,16 @@ body.t98-mode { overflow: hidden; background: var(--t98-bg0); }
   z-index: 20;
 }
 .t98-wire .t98-wire-tag { color: var(--t98-magenta-hi); letter-spacing: 1px; }
-.t98-wire .t98-wire-text { overflow: hidden; text-overflow: ellipsis; }
+.t98-wire .t98-wire-text { overflow: hidden; text-overflow: ellipsis; flex: 1; }
+.t98-credit {
+  margin-left: auto;
+  padding-left: 16px;
+  font-size: 12px;
+  letter-spacing: 1px;
+  color: var(--t98-cyan-dim);
+  opacity: 0.8;
+  white-space: nowrap;
+}
 
 /* ── bottom HUD / menu bar ────────────────────────────────────── */
 .t98-hud {

@@ -16,8 +16,7 @@ function getAssetURL(name){
 function rebrandTextNodes(root){
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
   const replacements = [
-    [/\bThe Bazaar\b/g, 'The Round Table'],
-    [/\bBazaar\b/g, 'Round Table'],
+    [/\bTradingAgentsGUI\b/g, 'The Round Table'],
     [/\bMarket Square\b/g, 'The Keep'],
     [/\bArchives\b/g, 'Chronicles'],
     [/\bTHE CHAMBER CONVENES\b/g, 'THE COUNCIL CONVENES'],
@@ -1259,7 +1258,7 @@ function submitChallengeTicker(ticker){
   // installLiveWiring(), so the council chrome reacts exactly as if the
   // React app had started the run.
   function directAnalyze(){
-    const token = localStorage.getItem('bazaar_token') || '';
+    const token = localStorage.getItem('tradingagents_token') || '';
     // Local date, not toISOString() (UTC) — late evening local can be
     // "tomorrow" in UTC and the backend rejects future dates.
     const d = new Date();
@@ -1282,7 +1281,7 @@ function submitChallengeTicker(ticker){
   }
 
   // The old React-form proxy is unreliable (its selectors target the
-  // original Bazaar UI, and the current quickstart form doesn't POST),
+  // original React UI, and the current quickstart form doesn't POST),
   // so always start the run directly.
   directAnalyze();
 }

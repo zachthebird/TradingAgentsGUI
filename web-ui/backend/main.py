@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import dotenv
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
@@ -843,13 +843,20 @@ async def get_report_markdown(ticker: str, date: str):
     )
 
 
-# ── Root redirect → Round Table ──────────────────────────────────────
+# ── Root redirect → the GUI ───────────────────────────────────────────
 
 
 @app.get("/")
 async def root_redirect():
-    """Redirect the root URL to the Round Table castle UI."""
-    return RedirectResponse(url="/the-bazaar/", status_code=307)
+    """Redirect the root URL to the TradingAgentsGUI frontend."""
+    return RedirectResponse(url="/gui/", status_code=307)
+
+
+@app.get("/the-bazaar/{rest:path}")
+async def legacy_bazaar_redirect(rest: str, request: Request):
+    """Legacy path: the frontend dir was renamed the-bazaar → gui."""
+    query = f"?{request.url.query}" if request.url.query else ""
+    return RedirectResponse(url=f"/gui/{rest}{query}", status_code=307)
 
 
 # ── Static files (mounted last so API routes take precedence) ──────────

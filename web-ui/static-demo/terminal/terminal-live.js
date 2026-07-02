@@ -1,11 +1,11 @@
 /* ═══════════════════════════════════════════════════════════════════
    PC-98 COUNCIL TERMINAL — live-tier view layer  (terminal-live.js)
 
-   Loaded INSTEAD of the castle pack when bazaar_ui_mode === 'terminal'
+   Loaded INSTEAD of the castle pack when tradingagents_ui_mode === 'terminal'
    (see the mode loader in index.html). Owns its own fetch + EventSource
    directly — no monkey-patching, no window.__sseListeners. The React
    app keeps running underneath (its token gate at z9999 still works;
-   we share localStorage.bazaar_token).
+   we share localStorage.tradingagents_token).
 
    Fixes the three live-tier failures (design/LIVE-UI-SPEC-PC98.md):
      1. Always-on working state: pipeline HUD, active node, elapsed,
@@ -147,7 +147,7 @@
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
   }
-  function token() { try { return localStorage.getItem('bazaar_token') || ''; } catch (e) { return ''; } }
+  function token() { try { return localStorage.getItem('tradingagents_token') || ''; } catch (e) { return ''; } }
   function withToken(url) {
     var t = token();
     if (!t) return url;
@@ -281,11 +281,12 @@
     });
     stage.appendChild(D.dialog);
 
-    // wire ticker
+    // wire ticker (+ upstream attribution, right-aligned)
     var wire = el('div', 't98-wire');
     wire.appendChild(el('span', 't98-wire-tag', 'WIRE▸'));
     D.wireText = el('span', 't98-wire-text', 'STANDING BY');
     wire.appendChild(D.wireText);
+    wire.appendChild(el('span', 't98-credit', 'BUILT ON TRADINGAGENTS · © TAURIC RESEARCH · APACHE-2.0'));
 
     // HUD
     var hud = el('div', 't98-hud');
@@ -585,7 +586,7 @@
         if (r.status === 403) {
           // The React gate only shows when NO token is stored — clear the
           // stale one so a reload actually re-prompts for the access code.
-          try { localStorage.removeItem('bazaar_token'); } catch (e2) {}
+          try { localStorage.removeItem('tradingagents_token'); } catch (e2) {}
           msg = 'ACCESS DENIED — token rejected. Reload the page to enter a new access code.';
         }
         throw new Error(msg);
@@ -1026,7 +1027,7 @@
     } else if (which === 'export') {
       exportSession();
     } else if (which === 'adv') {
-      try { localStorage.setItem('bazaar_ui_mode', 'adv'); } catch (e) {}
+      try { localStorage.setItem('tradingagents_ui_mode', 'adv'); } catch (e) {}
       location.reload();
     }
   }

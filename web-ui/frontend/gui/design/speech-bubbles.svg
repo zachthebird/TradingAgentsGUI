@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0;overflow:hidden;" aria-hidden="true">
+  <defs>
+    <filter id="rt-bubble-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.55"/>
+    </filter>
+    <linearGradient id="bubble-parchment" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#efe2c4"/><stop offset="100%" stop-color="#e8d6a8"/>
+    </linearGradient>
+    <linearGradient id="bubble-emphatic-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1e2438"/><stop offset="60%" stop-color="#161b2c"/><stop offset="100%" stop-color="#0e1320"/>
+    </linearGradient>
+    <linearGradient id="bubble-bull-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1a2e22"/><stop offset="100%" stop-color="#0e1812"/>
+    </linearGradient>
+    <linearGradient id="bubble-bear-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2e1a1e"/><stop offset="100%" stop-color="#180e10"/>
+    </linearGradient>
+
+    <!-- 1. STANDARD SPEECH : Parchment, rounded, left-pointing tail -->
+    <symbol id="bubble-standard" viewBox="0 0 260 120">
+      <rect x="12" y="8" width="220" height="88" rx="14" ry="14" fill="url(#bubble-parchment)" stroke="#c9b485" stroke-width="1.5" filter="url(#rt-bubble-shadow)"/>
+      <rect x="14" y="10" width="216" height="84" rx="13" ry="13" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+      <path d="M32 96 L14 114 L48 102 Z" fill="url(#bubble-parchment)" stroke="#c9b485" stroke-width="1.5"/>
+    </symbol>
+
+    <!-- 2. EMPHATIC / KEY POINT : Dark dramatic, gold-trimmed, impact lines -->
+    <symbol id="bubble-emphatic" viewBox="0 0 280 140">
+      <rect x="4" y="4" width="248" height="114" rx="12" ry="12" fill="none" stroke="#f2c761" stroke-width="3" opacity="0.5" filter="url(#rt-bubble-shadow)"/>
+      <rect x="10" y="10" width="236" height="102" rx="10" ry="10" fill="url(#bubble-emphatic-bg)" stroke="#f2c761" stroke-width="3"/>
+      <rect x="16" y="16" width="224" height="90" rx="7" ry="7" fill="none" stroke="#d9b35a" stroke-width="1" opacity="0.6"/>
+      <line x1="36" y1="112" x2="12" y2="130" stroke="#f2c761" stroke-width="1.5" opacity="0.6"/>
+      <line x1="44" y1="116" x2="26" y2="136" stroke="#f2c761" stroke-width="1" opacity="0.35"/>
+      <circle cx="248" cy="20" r="6" fill="#c43f54" opacity="0.8"/>
+      <path d="M34 112 L14 132 L50 118 Z" fill="url(#bubble-emphatic-bg)" stroke="#f2c761" stroke-width="2.5"/>
+    </symbol>
+
+    <!-- 3. BULL BUBBLE (Balthazar) : Green-tinted, upward tail, bullish surge -->
+    <symbol id="bubble-bull" viewBox="0 0 280 140">
+      <g opacity="0.25">
+        <path d="M20 110 Q 40 90 30 70" stroke="#3fa055" stroke-width="2" fill="none"/>
+        <path d="M40 115 Q 55 95 45 75" stroke="#3fa055" stroke-width="1.5" fill="none"/>
+      </g>
+      <rect x="10" y="8" width="236" height="96" rx="12" ry="12" fill="url(#bubble-bull-bg)" stroke="#3fa055" stroke-width="3"/>
+      <rect x="15" y="13" width="226" height="86" rx="9" ry="9" fill="none" stroke="#d9b35a" stroke-width="0.8" opacity="0.5"/>
+      <path d="M226 24 L230 16 L226 18 L222 16 Z" fill="#3fa055"/>
+      <circle cx="226" cy="16" r="3" fill="none" stroke="#3fa055" stroke-width="1"/>
+      <path d="M44 104 L22 82 L56 96 Z" fill="url(#bubble-bull-bg)" stroke="#3fa055" stroke-width="2.5"/>
+      <line x1="32" y1="94" x2="22" y2="84" stroke="#f2c761" stroke-width="1" opacity="0.5"/>
+    </symbol>
+
+    <!-- 4. BEAR BUBBLE (Morwen) : Crimson-tinted, downward tail, bearish descent -->
+    <symbol id="bubble-bear" viewBox="0 0 280 140">
+      <g opacity="0.25">
+        <path d="M20 70 Q 40 90 30 110" stroke="#c43f54" stroke-width="2" fill="none"/>
+        <path d="M40 75 Q 55 95 45 115" stroke="#c43f54" stroke-width="1.5" fill="none"/>
+      </g>
+      <rect x="10" y="8" width="236" height="96" rx="12" ry="12" fill="url(#bubble-bear-bg)" stroke="#c43f54" stroke-width="3"/>
+      <rect x="15" y="13" width="226" height="86" rx="9" ry="9" fill="none" stroke="#5b6379" stroke-width="0.8" opacity="0.5"/>
+      <circle cx="228" cy="22" r="3" fill="none" stroke="#c43f54" stroke-width="1.5"/>
+      <circle cx="228" cy="22" r="1" fill="#c43f54"/>
+      <path d="M44 104 L22 126 L56 112 Z" fill="url(#bubble-bear-bg)" stroke="#c43f54" stroke-width="2.5"/>
+      <line x1="32" y1="112" x2="22" y2="122" stroke="#5b6379" stroke-width="1" opacity="0.5"/>
+    </symbol>
+  </defs>
+</svg>

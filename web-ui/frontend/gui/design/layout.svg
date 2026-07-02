@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 700" aria-label="Round Table Council Layout — 8 seats around a circular table">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="50%">
+      <stop offset="0%" stop-color="#1a2138"/><stop offset="70%" stop-color="#0e1320"/><stop offset="100%" stop-color="#07090f"/>
+    </radialGradient>
+    <radialGradient id="table-grad" cx="38%" cy="32%">
+      <stop offset="0%" stop-color="#4a5067"/><stop offset="35%" stop-color="#353b50"/><stop offset="65%" stop-color="#252a3c"/><stop offset="100%" stop-color="#1a1f2e"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f2c761"/><stop offset="100%" stop-color="#9c7424"/>
+    </linearGradient>
+    <linearGradient id="crimson" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#c43f54"/><stop offset="100%" stop-color="#6e2530"/>
+    </linearGradient>
+    <linearGradient id="green" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3fa055"/><stop offset="100%" stop-color="#2d5d3a"/>
+    </linearGradient>
+    <filter id="glow-gold"><feGaussianBlur stdDeviation="4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="glow-crimson"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1000" height="700" fill="url(#bg)"/>
+
+  <!-- Border frame -->
+  <rect x="10" y="10" width="980" height="680" rx="14" fill="none" stroke="#5b6379" stroke-width="1" opacity="0.4"/>
+  <rect x="20" y="20" width="960" height="660" rx="10" fill="none" stroke="#d9b35a" stroke-width="0.5" opacity="0.25"/>
+
+  <!-- Round Table -->
+  <circle cx="500" cy="380" r="190" fill="url(#table-grad)" stroke="#1a1f2e" stroke-width="4"/>
+  <circle cx="500" cy="380" r="172" fill="none" stroke="#d9b35a" stroke-width="0.8" opacity="0.25"/>
+  <circle cx="500" cy="380" r="150" fill="none" stroke="#d9b35a" stroke-width="0.4" stroke-dasharray="6,4" opacity="0.18"/>
+  <!-- Crest -->
+  <circle cx="500" cy="380" r="30" fill="url(#gold)" opacity="0.35"/>
+
+  <!-- SEAT POSITIONS (matching castle-council.js SEATS angles) -->
+  <!-- Each seat: circle + label, placed at radius 210 from center -->
+
+  <!-- Seat 8 - Elder Aldric (Judge) — TOP/BACK, 270°, elevated throne -->
+  <circle cx="500" cy="170" r="40" fill="none" stroke="url(#gold)" stroke-width="3" filter="url(#glow-gold)" opacity="0.7"/>
+  <rect x="484" y="154" width="32" height="32" rx="16" fill="#5a3f12"/>
+  <text x="500" y="175" text-anchor="middle" fill="#f2c761" font-family="Georgia,serif" font-size="12" font-weight="bold">⚖</text>
+  <text x="500" y="196" text-anchor="middle" fill="#f2c761" font-family="Georgia,serif" font-size="10" letter-spacing="2">ELDER ALDRIC</text>
+  <text x="500" y="210" text-anchor="middle" fill="#d9b35a" font-family="Georgia,serif" font-size="7" letter-spacing="1">HIGH JUDGE</text>
+  <!-- Throne indicator -->
+  <rect x="475" y="130" width="50" height="10" rx="3" fill="url(#gold)" opacity="0.5"/>
+
+  <!-- Seat 1 - Flint (market, 315°) — upper-left -->
+  <circle cx="315" cy="235" r="28" fill="#2a3043" stroke="#5b6379" stroke-width="1.5"/>
+  <text x="315" y="230" text-anchor="middle" fill="#cfd2db" font-family="Georgia,serif" font-size="9">📊</text>
+  <text x="315" y="248" text-anchor="middle" fill="#cfd2db" font-family="Georgia,serif" font-size="8">FLINT</text>
+  <text x="315" y="258" text-anchor="middle" fill="#a8a89e" font-family="Georgia,serif" font-size="6">Market</text>
+
+  <!-- Seat 2 - Vera (social, 0°) — top-right -->
+  <circle cx="685" cy="235" r="28" fill="#2a1a3a" stroke="#5b6379" stroke-width="1.5"/>
+  <text x="685" y="230" text-anchor="middle" fill="#f2c761" font-family="Georgia,serif" font-size="9">⭐</text>
+  <text x="685" y="248" text-anchor="middle" fill="#cfd2db" font-family="Georgia,serif" font-size="8">VERA</text>
+  <text x="685" y="258" text-anchor="middle" fill="#a8a89e" font-family="Georgia,serif" font-size="6">Sentiment</text>
+
+  <!-- Seat 3 - Reed (news, 45°) — right -->
+  <circle cx="710" cy="380" r="28" fill="#15302a" stroke="#5b6379" stroke-width="1.5"/>
+  <text x="710" y="375" text-anchor="middle" fill="#3fa055" font-family="Georgia,serif" font-size="9">📰</text>
+  <text x="710" y="393" text-anchor="middle" fill="#cfd2db" font-family="Georgia,serif" font-size="8">REED</text>
+  <text x="710" y="403" text-anchor="middle" fill="#a8a89e" font-family="Georgia,serif" font-size="6">News</text>
+
+  <!-- Seat 4 - Sage (fundamentals, 90°) — lower-right -->
+  <circle cx="630" cy="520" r="28" fill="#3a2e1a" stroke="#5b6379" stroke-width="1.5"/>
+  <text x="630" y="515" text-anchor="middle" fill="#f2c761" font-family="Georgia,serif" font-size="9">📖</text>
+  <text x="630" y="533" text-anchor="middle" fill="#cfd2db" font-family="Georgia,serif" font-size="8">SAGE</text>
+  <text x="630" y="543" text-anchor="middle" fill="#a8a89e" font-family="Georgia,serif" font-size="6">Fundamentals</text>
+
+  <!-- Seat 5 - Balthazar (debater, 135°) — bottom-center, BULL -->
+  <circle cx="500" cy="590" r="28" fill="#3a1620" stroke="#c43f54" stroke-width="2"/>
+  <text x="500" y="585" text-anchor="middle" fill="#c43f54" font-family="Georgia,serif" font-size="11" font-weight="bold">🐂</text>
+  <text x="500" y="608" text-anchor="middle" fill="#f5b8c2" font-family="Georgia,serif" font-size="8">BALTHAZAR</text>
+  <text x="500" y="618" text-anchor="middle" fill="#a8a89e" font-family="Georgia,serif" font-size="6">Bull Debater</text>
+
+  <!-- Seat 6 - Morwen (risk, 180°) — bottom-center-left, BEAR -->
+  <circle cx="370" cy="520" r="28" fill="#2e3445" stroke="#5b6379" stroke-width="2"/>
+  <text x="370" y="515" text-anchor="middle" fill="#5b6379" font-family="Georgia,serif" font-size="11" font-weight="bold">🐻</text>
+  <text x="370" y="533" text-anchor="middle" fill="#cfd2db" font-family="Georgia,serif" font-size="8">MORWEN</text>
+  <text x="370" y="543" text-anchor="middle" fill="#a8a89e" font-family="Georgia,serif" font-size="6">Bear Debater</text>
+
+  <!-- Seat 7 - Kael (trader, 225°) — left -->
+  <circle cx="290" cy="380" r="28" fill="#27262d" stroke="#5b6379" stroke-width="1.5"/>
+  <text x="290" y="375" text-anchor="middle" fill="#cfd2db" font-family="Georgia,serif" font-size="9">⚡</text>
+  <text x="290" y="393" text-anchor="middle" fill="#cfd2db" font-family="Georgia,serif" font-size="8">KAEL</text>
+  <text x="290" y="403" text-anchor="middle" fill="#a8a89e" font-family="Georgia,serif" font-size="6">Trader</text>
+
+  <!-- DEBATE SPARROW — Bull vs Bear arc -->
+  <path d="M470 580 Q 420 530 390 520" stroke="url(#green)" stroke-width="1.5" fill="none" stroke-dasharray="6,4" opacity="0.5"/>
+  <path d="M530 580 Q 580 530 610 520" stroke="url(#crimson)" stroke-width="1.5" fill="none" stroke-dasharray="6,4" opacity="0.5"/>
+  <text x="435" y="565" text-anchor="middle" fill="#3fa055" font-family="Georgia,serif" font-size="7" transform="rotate(-35 435 565)">SPAR</text>
+  <text x="565" y="565" text-anchor="middle" fill="#c43f54" font-family="Georgia,serif" font-size="7" transform="rotate(35 565 565)">SPAR</text>
+
+  <!-- === RIGHT PANEL: Panel transition diagram === -->
+  <rect x="28" y="620" width="944" height="58" rx="6" fill="#161b2c" stroke="#3d4459" stroke-width="1"/>
+  <text x="500" y="638" text-anchor="middle" fill="#d9b35a" font-family="Georgia,serif" font-size="10" letter-spacing="2">PANEL TRANSITIONS</text>
+  <!-- Transition flow -->
+  <text x="60" y="664" fill="#a8a89e" font-family="monospace" font-size="9">1. WIDE</text>
+  <text x="190" y="664" fill="#d9b35a" font-family="monospace" font-size="9">→</text>
+  <text x="220" y="664" fill="#a8a89e" font-family="monospace" font-size="9">2. CLOSE-UP</text>
+  <text x="410" y="664" fill="#d9b35a" font-family="monospace" font-size="9">→</text>
+  <text x="440" y="664" fill="#a8a89e" font-family="monospace" font-size="9">3. SPLIT</text>
+  <text x="600" y="664" fill="#d9b35a" font-family="monospace" font-size="9">→</text>
+  <text x="630" y="664" fill="#a8a89e" font-family="monospace" font-size="9">4. VERDICT</text>
+  <text x="830" y="664" fill="#d9b35a" font-family="monospace" font-size="9">→</text>
+  <text x="860" y="664" fill="#a8a89e" font-family="monospace" font-size="9">5. REACTION</text>
+
+  <!-- Left panel: Key / legend -->
+  <rect x="28" y="380" width="160" height="120" rx="6" fill="#161b2c" stroke="#3d4459" stroke-width="1"/>
+  <text x="108" y="398" text-anchor="middle" fill="#d9b35a" font-family="Georgia,serif" font-size="9" letter-spacing="1">VISUAL EMPHASIS</text>
+  <circle cx="50" cy="420" r="8" fill="none" stroke="#f2c761" stroke-width="2" filter="url(#glow-gold)"/>
+  <text x="68" y="424" fill="#f2c761" font-size="8">Gold glow (speaking)</text>
+  <circle cx="50" cy="442" r="8" fill="none" stroke="#d9b35a" stroke-width="1.5" stroke-dasharray="3,3"/>
+  <text x="68" y="446" fill="#d9b35a" font-size="8">Pulse (thinking)</text>
+  <circle cx="50" cy="464" r="8" fill="#1a1f2e" stroke="#5b6379" stroke-width="1"/>
+  <text x="68" y="468" fill="#a8a89e" font-size="8">Default (idle/done)</text>
+  <circle cx="50" cy="486" r="8" fill="#1a1f2e" stroke="#5b6379" stroke-width="1" opacity="0.5"/>
+  <text x="68" y="490" fill="#5b6379" font-size="8">Dimmed (inactive)</text>
+
+  <!-- Right panel: Bull/Bear directions -->
+  <rect x="812" y="380" width="160" height="85" rx="6" fill="#161b2c" stroke="#3d4459" stroke-width="1"/>
+  <text x="892" y="398" text-anchor="middle" fill="#d9b35a" font-family="Georgia,serif" font-size="9" letter-spacing="1">FACING</text>
+  <text x="800" y="420" fill="#3fa055" font-size="8" text-anchor="end">Balthazar</text>
+  <text x="830" y="420" fill="#a8a89e" font-size="12">⟷</text>
+  <text x="970" y="420" fill="#c43f54" font-size="8">Morwen</text>
+  <text x="892" y="440" text-anchor="middle" fill="#a8a89e" font-size="7">Face each other across table</text>
+  <text x="892" y="455" text-anchor="middle" fill="#5b6379" font-size="6">(135° ↔ 315° via table center)</text>
+
+  <!-- Title -->
+  <text x="500" y="42" text-anchor="middle" fill="#f2c761" font-family="Georgia,serif" font-size="16" letter-spacing="4" font-weight="bold">THE ROUND TABLE COUNCIL</text>
+  <text x="500" y="60" text-anchor="middle" fill="#a8a89e" font-family="Georgia,serif" font-size="9" letter-spacing="3">EIGHT SEATS · ONE VERDICT</text>
+</svg>

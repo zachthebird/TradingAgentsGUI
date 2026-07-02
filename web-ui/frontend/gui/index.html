@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>The Bazaar — TradingAgents</title>
+<title>TradingAgentsGUI — AI Trading Council</title>
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <style>
   /* ═══════════════════════════════════════════════════
-     THE BAZAAR — Design Tokens & Global Styles
+     TRADINGAGENTSGUI — Design Tokens & Global Styles
      Warm, conversational, character-driven trading interface
      ═══════════════════════════════════════════════════ */
   :root {
@@ -219,90 +219,90 @@
   .token-error { color: var(--signal-bearish); font-size: 13px; margin-top: 8px; }
 
   /* ═══════════════════════════════════════════════════
-     SCREEN: BAZAAR INPUT
+     SCREEN: TICKER INPUT
      ═══════════════════════════════════════════════════ */
-  .bazaar-input {
+  .tagui-input {
     flex: 1; display: flex; flex-direction: column;
     align-items: center; justify-content: center;
     padding: 40px 20px;
     animation: fadeInUp 0.6s ease;
   }
-  .bazaar-input .welcome-text { text-align: center; margin-bottom: 32px; }
-  .bazaar-input .welcome-text h1 {
+  .tagui-input .welcome-text { text-align: center; margin-bottom: 32px; }
+  .tagui-input .welcome-text h1 {
     font-size: 32px; color: var(--accent-amber); margin-bottom: 6px;
     letter-spacing: 0.01em;
   }
-  .bazaar-input .welcome-text .tagline {
+  .tagui-input .welcome-text .tagline {
     color: var(--text-secondary); font-size: 15px; font-style: italic;
   }
-  .bazaar-input .agent-roster {
+  .tagui-input .agent-roster {
     display: flex; gap: 4px; justify-content: center;
     margin-bottom: 28px; flex-wrap: wrap;
   }
-  .bazaar-input .agent-chip {
+  .tagui-input .agent-chip {
     width: 44px; height: 44px; border-radius: 50%;
     border: 2px solid var(--border-default);
     display: flex; align-items: center; justify-content: center;
     font-size: 20px; cursor: default;
     transition: all 200ms;
   }
-  .bazaar-input .agent-chip:hover {
+  .tagui-input .agent-chip:hover {
     border-color: var(--accent-amber);
     transform: translateY(-3px);
     box-shadow: 0 4px 12px rgba(232,168,64,0.2);
   }
-  .bazaar-input .form-card {
+  .tagui-input .form-card {
     background: var(--bg-surface);
     border: 1px solid var(--border-default);
     border-radius: 14px; padding: 28px;
     width: 100%; max-width: 480px;
     animation: fadeInUp 0.6s ease 0.15s both;
   }
-  .bazaar-input .form-row { display: flex; gap: 12px; margin-bottom: 16px; }
-  .bazaar-input .form-group { flex: 1; }
-  .bazaar-input .form-label {
+  .tagui-input .form-row { display: flex; gap: 12px; margin-bottom: 16px; }
+  .tagui-input .form-group { flex: 1; }
+  .tagui-input .form-label {
     display: block; font-size: 11px; font-weight: 600;
     text-transform: uppercase; letter-spacing: 0.07em;
     color: var(--text-muted); margin-bottom: 6px;
   }
-  .bazaar-input .form-input {
+  .tagui-input .form-input {
     width: 100%; padding: 10px 14px;
     background: var(--bg-input); border: 1px solid var(--border-default);
     border-radius: 10px; color: var(--text-primary); font-size: 15px;
     font-family: var(--font-sans); transition: border-color 200ms;
     outline: none;
   }
-  .bazaar-input .form-input:focus { border-color: var(--border-active); }
-  .bazaar-input select.form-input {
+  .tagui-input .form-input:focus { border-color: var(--border-active); }
+  .tagui-input select.form-input {
     cursor: pointer; appearance: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='%23A89B85'%3E%3Cpath d='M6 8L0 0h12z'/%3E%3C/svg%3E");
     background-repeat: no-repeat; background-position: right 12px center;
     padding-right: 36px;
   }
 
-  .bazaar-input .analyst-grid {
+  .tagui-input .analyst-grid {
     display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
     margin-bottom: 20px;
   }
-  .bazaar-input .analyst-check {
+  .tagui-input .analyst-check {
     display: flex; align-items: center; gap: 8px;
     padding: 8px 12px; background: var(--bg-input);
     border: 1px solid var(--border-default); border-radius: 8px;
     cursor: pointer; transition: all 150ms; font-size: 13px;
     user-select: none;
   }
-  .bazaar-input .analyst-check:hover { border-color: var(--border-active); }
-  .bazaar-input .analyst-check.checked {
+  .tagui-input .analyst-check:hover { border-color: var(--border-active); }
+  .tagui-input .analyst-check.checked {
     border-color: var(--accent-amber);
     background: rgba(232,168,64,0.08);
   }
-  .bazaar-input .analyst-check .avatar {
+  .tagui-input .analyst-check .avatar {
     width: 26px; height: 26px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
     font-size: 14px; flex-shrink: 0;
   }
 
-  .bazaar-input .btn-summon {
+  .tagui-input .btn-summon {
     width: 100%; padding: 14px; border: none; border-radius: 12px;
     background: linear-gradient(135deg, var(--accent-amber), #D49520);
     color: #1A1410; font-size: 16px; font-weight: 700;
@@ -311,12 +311,12 @@
     transition: all 200ms;
     position: relative; overflow: hidden;
   }
-  .bazaar-input .btn-summon:hover {
+  .tagui-input .btn-summon:hover {
     background: linear-gradient(135deg, var(--accent-glow), #E8A840);
     transform: translateY(-1px);
     box-shadow: 0 6px 24px rgba(232,168,64,0.25);
   }
-  .bazaar-input .btn-summon:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .tagui-input .btn-summon:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
   /* ═══════════════════════════════════════════════════
      SCREEN: COUNCIL ARENA (DEBATE)
@@ -850,7 +850,7 @@
      RESPONSIVE
      ═══════════════════════════════════════════════════ */
   @media (max-width: 600px) {
-    .bazaar-input .analyst-grid { grid-template-columns: 1fr; }
+    .tagui-input .analyst-grid { grid-template-columns: 1fr; }
     .ledger-card { padding: 28px 20px; }
     .ledger-card .verdict-decision { font-size: 28px; }
     .dashboard-hero h1 { font-size: 28px; }
@@ -980,7 +980,7 @@ function TokenGate({ onUnlock, apiBase }) {
     <div className="token-overlay">
       <form className="token-card" onSubmit={handleSubmit}>
         <div style={{fontSize:48, marginBottom:12}}>🏛️</div>
-        <h2>Enter The Bazaar</h2>
+        <h2>Access TradingAgentsGUI</h2>
         <p>The gates are sealed. Speak the passphrase to summon the Council of Analysts.</p>
         <input type="password" placeholder="API token..." value={input}
                onChange={e => { setInput(e.target.value); setError(''); }}
@@ -1006,8 +1006,8 @@ const DEEPSEEK_PRESETS = [
     llm_provider: 'deepseek', deep_think_llm: 'deepseek-r1', quick_think_llm: 'deepseek-v4-flash' },
 ];
 
-/* ── Bazaar Input Screen ────────────────────────── */
-function BazaarInput({ onSubmit, isSubmitting, prefillTicker }) {
+/* ── TradingAgentsGUI Input Screen ────────────────────────── */
+function TickerInput({ onSubmit, isSubmitting, prefillTicker }) {
   const [ticker, setTicker] = useState(prefillTicker || '');
   const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [analysts, setAnalysts] = useState(['market','social','news','fundamentals']);
@@ -1036,9 +1036,9 @@ function BazaarInput({ onSubmit, isSubmitting, prefillTicker }) {
   const agentEntries = ALL_AGENTS.slice(0, 4);
 
   return (
-    <div className="bazaar-input">
+    <div className="tagui-input">
       <div className="welcome-text">
-        <h1>🏛️ The Bazaar</h1>
+        <h1>🏛️ TradingAgentsGUI</h1>
         <p className="tagline">Where the finest analytical minds gather to debate your trade.</p>
       </div>
       <div className="agent-roster">
@@ -1332,7 +1332,7 @@ function Dashboard({ onQuickAnalyze, onViewReport, apiBase, token, onNavHistory 
   return (
     <div className="dashboard">
       <div className="dashboard-hero">
-        <h1>🏛️ The Bazaar</h1>
+        <h1>🏛️ TradingAgentsGUI</h1>
         <p className="subtitle">Where the finest analytical minds gather to debate your trade.</p>
         <form className="quickstart" onSubmit={handleQuickSubmit}>
           <input type="text" placeholder="AAPL" maxLength={10}
@@ -1572,8 +1572,8 @@ function HistoryDetail({ report, apiBase, token, onBack, onReanalyze }) {
 function App() {
   const { apiBase, urlToken } = useQueryParams();
   const [screen, setScreen] = useState('dashboard');
-  const [token, setToken] = useState(() => localStorage.getItem('bazaar_token') || '');
-  const [showTokenGate, setShowTokenGate] = useState(!localStorage.getItem('bazaar_token'));
+  const [token, setToken] = useState(() => localStorage.getItem('tradingagents_token') || '');
+  const [showTokenGate, setShowTokenGate] = useState(!localStorage.getItem('tradingagents_token'));
   const [messages, setMessages] = useState([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingAgent, setStreamingAgent] = useState('');
@@ -1593,7 +1593,7 @@ function App() {
   useEffect(() => { messagesRef.current = messages; }, [messages]);
 
   function handleTokenUnlock(t) {
-    localStorage.setItem('bazaar_token', t);
+    localStorage.setItem('tradingagents_token', t);
     setToken(t);
     setShowTokenGate(false);
   }
@@ -1805,7 +1805,7 @@ function App() {
     <div className="app-container">
       <div className="topbar">
         <div className="topbar-brand" onClick={() => navigateTo('dashboard')}>
-          <span className="icon">🏛️</span> The Bazaar
+          <span className="icon">🏛️</span> TradingAgentsGUI
         </div>
         <div className="topbar-nav">
           <button className={screen === 'dashboard' ? 'active' : ''}
@@ -1830,7 +1830,7 @@ function App() {
       )}
 
       {screen === 'input' && (
-        <BazaarInput onSubmit={handleSubmit} isSubmitting={isSubmitting} prefillTicker={prefillTicker} />
+        <TickerInput onSubmit={handleSubmit} isSubmitting={isSubmitting} prefillTicker={prefillTicker} />
       )}
 
       {screen === 'debate' && (
@@ -1870,16 +1870,29 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 <!-- UI mode loader: 'terminal' (PC-98 live terminal, default) or 'adv' (castle/ADV pack). -->
 <!-- Terminal mode loads ONLY terminal.css+terminal-live.js — the castle pack's body-wide
      rebrand observer, unscoped !important styles, and SSE hooks stay out of the way.
-     Switch: ?ui=adv / ?ui=terminal, persisted in localStorage.bazaar_ui_mode.
+     Switch: ?ui=adv / ?ui=terminal, persisted in localStorage.tradingagents_ui_mode.
      ?v= cache-buster: bump when assets change (stale-tab caching bit us twice) -->
 <script>
 (function () {
-  var V = '20260703i';
+  var V = '20260704a';
+  // One-time migration from the legacy "bazaar_*" localStorage keys so
+  // stored tokens / UI preferences survive the rename.
+  try {
+    ['token', 'ui_mode'].forEach(function (k) {
+      var old = localStorage.getItem('bazaar_' + k);
+      if (old !== null) {
+        if (localStorage.getItem('tradingagents_' + k) === null) {
+          localStorage.setItem('tradingagents_' + k, old);
+        }
+        localStorage.removeItem('bazaar_' + k);
+      }
+    });
+  } catch (e) {}
   var mode = 'terminal';
   try {
     var forced = new URLSearchParams(location.search).get('ui');
-    if (forced === 'adv' || forced === 'terminal') localStorage.setItem('bazaar_ui_mode', forced);
-    mode = localStorage.getItem('bazaar_ui_mode') || 'terminal';
+    if (forced === 'adv' || forced === 'terminal') localStorage.setItem('tradingagents_ui_mode', forced);
+    mode = localStorage.getItem('tradingagents_ui_mode') || 'terminal';
   } catch (e) {}
   function css(href) { document.write('<link rel="stylesheet" href="' + href + '">'); }
   function js(src) { document.write('<scr' + 'ipt defer src="' + src + '"></scr' + 'ipt>'); }
@@ -1896,10 +1909,15 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
       b.onmouseenter = function () { b.style.opacity = '1'; };
       b.onmouseleave = function () { b.style.opacity = '.65'; };
       b.onclick = function () {
-        try { localStorage.setItem('bazaar_ui_mode', 'terminal'); } catch (e) {}
+        try { localStorage.setItem('tradingagents_ui_mode', 'terminal'); } catch (e) {}
         location.reload();
       };
       document.body.appendChild(b);
+      // Upstream attribution (terminal mode renders its own in the wire bar)
+      var cr = document.createElement('div');
+      cr.textContent = 'Built on TradingAgents · © Tauric Research · Apache-2.0';
+      cr.style.cssText = 'position:fixed;bottom:12px;left:12px;z-index:800;color:#8a7a4a;font-family:monospace;font-size:10px;letter-spacing:.5px;opacity:.6;pointer-events:none';
+      document.body.appendChild(cr);
     });
   } else {
     css('https://fonts.googleapis.com/css2?family=DotGothic16&family=VT323&display=swap');
