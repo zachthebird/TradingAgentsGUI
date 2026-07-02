@@ -421,6 +421,20 @@ body.t98-mode { overflow: hidden; background: var(--t98-bg0); }
 }
 .t98-check input { accent-color: var(--t98-maroon); width: 15px; height: 15px; }
 .t98-form-err { color: var(--t98-maroon); font-size: 12px; font-family: var(--t98-font-dot); min-height: 15px; }
+.t98-adv-panel {
+  border: 2px dashed var(--t98-tan-dk);
+  padding: 10px 12px;
+  display: grid;
+  gap: 10px;
+  background: rgba(210, 177, 132, 0.12);
+}
+.t98-input.t98-wide { width: min(340px, 60vw); font-size: 16px; letter-spacing: 1px; text-transform: none; }
+.t98-adv-note {
+  font-family: var(--t98-font-dot);
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--t98-ink-soft);
+}
 
 /* ── wire (event ticker line) ─────────────────────────────────── */
 .t98-wire {

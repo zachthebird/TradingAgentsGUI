@@ -496,6 +496,15 @@
   }
 
   /* ── idle summon form ─────────────────────────────────────────── */
+  var serverDefaults = null;
+  function fetchServerDefaults(cb) {
+    if (serverDefaults) { cb(serverDefaults); return; }
+    fetch(withToken('/config/defaults'))
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { serverDefaults = j; cb(j); })
+      .catch(function () { cb(null); });
+  }
+
   function showIdleForm() {
     stopTyping();
     S.pageIdx = -1;
@@ -509,11 +518,27 @@
       '<div class="t98-form-row"><label>Ticker</label><input class="t98-input t98-ticker" id="t98-f-ticker" maxlength="10" placeholder="NVDA" autocomplete="off" spellcheck="false"></div>' +
       '<div class="t98-form-row"><label>Trade date</label><input class="t98-input" type="date" id="t98-f-date" max="' + localToday() + '" value="' + localToday() + '"></div>' +
       '<div class="t98-form-row"><label>Depth</label><select class="t98-select" id="t98-f-depth">' +
-        '<option value="standard" selected>STANDARD</option><option value="deep">DEEP</option><option value="quick">QUICK</option></select></div>' +
+        '<option value="standard" selected>STANDARD — 1 DEBATE ROUND</option>' +
+        '<option value="deep">DEEP — 2 DEBATE ROUNDS</option>' +
+        '<option value="quick">QUICK — NO DEBATE ROUNDS</option></select></div>' +
       '<div class="t98-form-row"><label>Analysts</label>' +
         ['market', 'social', 'news', 'fundamentals'].map(function (a) {
           return '<label class="t98-check"><input type="checkbox" data-analyst="' + a + '" checked>' + a + '</label>';
         }).join('') + '</div>' +
+      '<div class="t98-form-row"><label>Advanced</label>' +
+        '<button type="button" class="t98-btn" id="t98-f-advtoggle">▸ COUNCIL CONFIG</button></div>' +
+      '<div id="t98-f-adv" class="t98-adv-panel" style="display:none">' +
+        '<div class="t98-form-row"><label>Provider</label><select class="t98-select" id="t98-f-provider">' +
+          '<option value="" selected>SERVER DEFAULT</option>' +
+          ['deepseek', 'openai', 'anthropic', 'google', 'xai', 'qwen', 'glm', 'minimax', 'openrouter', 'azure', 'ollama']
+            .map(function (p) { return '<option value="' + p + '">' + p.toUpperCase() + '</option>'; }).join('') +
+        '</select></div>' +
+        '<div class="t98-form-row"><label>Deep model</label><input class="t98-input t98-wide" id="t98-f-deepllm" autocomplete="off" spellcheck="false"></div>' +
+        '<div class="t98-form-row"><label>Quick model</label><input class="t98-input t98-wide" id="t98-f-quickllm" autocomplete="off" spellcheck="false"></div>' +
+        '<div class="t98-form-row"><label>Language</label><input class="t98-input t98-wide" id="t98-f-lang" autocomplete="off" spellcheck="false"></div>' +
+        '<div class="t98-form-row"><label>Backend URL</label><input class="t98-input t98-wide" id="t98-f-backendurl" placeholder="(auto)" autocomplete="off" spellcheck="false"></div>' +
+        '<div class="t98-adv-note">BLANK FIELDS USE SERVER DEFAULTS. API KEYS COME FROM THE SERVER .ENV — THE FORM NEVER CARRIES THEM.</div>' +
+      '</div>' +
       '<div class="t98-form-err" id="t98-f-err"></div>';
     D.dialogBody.innerHTML = '';
     D.dialogBody.appendChild(form);
@@ -525,6 +550,24 @@
 
     var t = document.getElementById('t98-f-ticker');
     t.addEventListener('keydown', function (e) { if (e.key === 'Enter') submitForm(); });
+    document.getElementById('t98-f-advtoggle').addEventListener('click', function () {
+      var panel = document.getElementById('t98-f-adv');
+      var open = panel.style.display !== 'none';
+      panel.style.display = open ? 'none' : 'block';
+      this.textContent = (open ? '▸' : '▾') + ' COUNCIL CONFIG';
+    });
+    // Placeholders show the server's effective defaults (mirrors the
+    // CLI wizard's provider/model questions).
+    fetchServerDefaults(function (d) {
+      if (!d) return;
+      var map = { 't98-f-deepllm': d.deep_think_llm, 't98-f-quickllm': d.quick_think_llm, 't98-f-lang': d.output_language };
+      Object.keys(map).forEach(function (id) {
+        var elx = document.getElementById(id);
+        if (elx && map[id]) elx.placeholder = map[id];
+      });
+      var prov = document.getElementById('t98-f-provider');
+      if (prov && d.llm_provider) prov.options[0].textContent = 'SERVER DEFAULT (' + String(d.llm_provider).toUpperCase() + ')';
+    });
     // No stored token → the React gate (z9999) is about to mount and take
     // focus for the passphrase field; stealing it would send keystrokes
     // to a hidden input.
@@ -544,11 +587,25 @@
     if (!analysts.length) { err.textContent = 'PICK AT LEAST ONE ANALYST.'; return; }
     if (date > localToday()) { err.textContent = 'DATE CANNOT BE IN THE FUTURE.'; return; }
     err.textContent = '';
-    startRun(ticker, date, analysts, depth);
+    // Advanced overrides — only non-empty values ride along (mirrors
+    // the CLI wizard's provider/model/language questions).
+    var adv = {};
+    function grab(id, key) {
+      var n = document.getElementById(id);
+      var v = n ? String(n.value || '').trim() : '';
+      if (v) adv[key] = v;
+    }
+    grab('t98-f-provider', 'llm_provider');
+    grab('t98-f-deepllm', 'deep_think_llm');
+    grab('t98-f-quickllm', 'quick_think_llm');
+    grab('t98-f-lang', 'output_language');
+    grab('t98-f-backendurl', 'backend_url');
+    startRun(ticker, date, analysts, depth, adv);
   }
 
   /* ── run lifecycle ────────────────────────────────────────────── */
-  function startRun(ticker, date, analysts, depth) {
+  function startRun(ticker, date, analysts, depth, adv) {
+    adv = adv || {};
     closeWindows();
     stopAttract();
     clearTimeout(timers.advance); timers.advance = null;
@@ -565,17 +622,22 @@
     setWire('POST /analyze — ' + ticker + ' ' + date);
     D.menu.summon.disabled = true;
     D.menu.archive.disabled = true;
+    var advLines = Object.keys(adv).map(function (k) { return '- **' + k + ':** ' + adv[k]; });
     pushPage({
       kind: 'system', title: 'COUNCIL SUMMONED', sub: ticker + ' · ' + date + ' · ' + depth.toUpperCase(),
       seat: 'judge',
-      html: mdToHtml('The council convenes for **' + ticker + '** (' + date + ').\n\nAnalysts on the floor: ' + analysts.join(', ') + '.\n\nFirst testimony arrives in a minute or two — watch the wire and the pipeline lamps below. Every full report lands here as its own page, and the INDEX collects them all.'),
+      html: mdToHtml('The council convenes for **' + ticker + '** (' + date + ').\n\nAnalysts on the floor: ' + analysts.join(', ') + '.\n' +
+        (advLines.length ? '\nCouncil config overrides:\n' + advLines.join('\n') + '\n' : '') +
+        '\nFirst testimony arrives in a minute or two — watch the wire and the pipeline lamps below. Every full report lands here as its own page, and the INDEX collects them all.'),
     });
     fetchPrices(ticker, date);
 
+    var body = { ticker: ticker, date: date, analysts: analysts, research_depth: depth };
+    Object.keys(adv).forEach(function (k) { body[k] = adv[k]; });
     fetch(withToken('/analyze'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ticker: ticker, date: date, analysts: analysts, research_depth: depth }),
+      body: JSON.stringify(body),
     }).then(function (r) {
       return r.json().then(function (j) { return { ok: r.ok, status: r.status, body: j }; });
     }).then(function (r) {

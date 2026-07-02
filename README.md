@@ -35,7 +35,7 @@ cp .env.example .env   # add your LLM API key(s); optional TRADINGAGENTS_API_TOK
 cd web-ui && bash start.sh   # serves UI + API at http://localhost:8000
 ```
 
-Type a ticker and begin the analysis — a real multi-agent run streams into the terminal page by page (takes a few minutes; costs whatever your LLM provider charges). Switch UIs any time: menu button in either view, or `?ui=terminal` / `?ui=adv`.
+Type a ticker and begin the analysis — a real multi-agent run streams into the terminal page by page (takes a few minutes; costs whatever your LLM provider charges). The summon form’s **ADVANCED → COUNCIL CONFIG** panel exposes the same knobs as the CLI wizard: LLM provider, deep/quick-think models, output language, and backend URL (blank = server defaults from `.env`). Switch UIs any time: menu button in either view, or `?ui=terminal` / `?ui=adv`.
 
 **Live runs are self-hosted only, by design.** The public site serves recorded/scripted demos; there is no hosted backend, no shared API keys, and nothing to abuse. Run it yourself with your own keys for live analyses.
 

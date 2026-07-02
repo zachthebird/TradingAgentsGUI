@@ -104,7 +104,7 @@ class BearerAuthMiddleware(BaseHTTPMiddleware):
         # Allow static-frontend requests (the HTML / JS / CSS itself).
         # API routes are under /analyze, /stream, /reports, /auth — everything
         # else is assumed to be a static asset.
-        _api_prefixes = ("/analyze", "/stream", "/reports", "/auth")
+        _api_prefixes = ("/analyze", "/stream", "/reports", "/auth", "/config")
         if not any(path.startswith(p) for p in _api_prefixes):
             return await call_next(request)
 
@@ -261,12 +261,20 @@ _jobs: Dict[str, Job] = {}
 # the worker thread is considered stalled and the job is failed.
 JOB_TIMEOUT_SECONDS = int(os.environ.get("TRADINGAGENTS_JOB_TIMEOUT", "600"))
 
-# Required environment variable for the LLM to function.  Checked at
-# analysis-submit time so users get immediate feedback instead of an
-# opaque SSE error 30 seconds later.
-REQUIRED_ENV_VARS = [
-    "DEEPSEEK_API_KEY",
-]
+# API-key env var per LLM provider.  Checked at analysis-submit time —
+# against the provider the request actually selects — so users get
+# immediate feedback instead of an opaque SSE error 30 seconds later.
+# Providers absent here (glm, minimax, azure, ollama…) skip the check;
+# their key conventions vary / they may not need one.
+PROVIDER_KEY_ENV = {
+    "deepseek": "DEEPSEEK_API_KEY",
+    "openai": "OPENAI_API_KEY",
+    "anthropic": "ANTHROPIC_API_KEY",
+    "google": "GOOGLE_API_KEY",
+    "xai": "XAI_API_KEY",
+    "qwen": "DASHSCOPE_API_KEY",
+    "openrouter": "OPENROUTER_API_KEY",
+}
 
 # ── helpers ────────────────────────────────────────────────────────────
 
@@ -602,6 +610,24 @@ async def verify_token():
     return TokenVerificationResponse(valid=True)
 
 
+@app.get("/config/defaults")
+async def config_defaults():
+    """Effective server defaults for the GUI's advanced summon form.
+
+    Non-secret values only — model names and provider, never keys.
+    """
+    return {
+        "llm_provider": DEFAULT_CONFIG.get("llm_provider"),
+        "deep_think_llm": DEFAULT_CONFIG.get("deep_think_llm"),
+        "quick_think_llm": DEFAULT_CONFIG.get("quick_think_llm"),
+        "output_language": DEFAULT_CONFIG.get("output_language"),
+        "research_depth_rounds": {"quick": 0, "standard": 1, "deep": 2},
+        "providers_with_keys": sorted(
+            p for p, var in PROVIDER_KEY_ENV.items() if os.environ.get(var)
+        ),
+    }
+
+
 @app.post("/analyze", response_model=AnalyzeResponse)
 async def analyze(req: AnalyzeRequest):
     """Kick off a new analysis.  Returns immediately with a ``job_id``.
@@ -610,13 +636,14 @@ async def analyze(req: AnalyzeRequest):
     by the Pydantic model.  A pre-flight API-key check ensures the
     required credentials are present before the job starts.
     """
-    # ── pre-flight: required env vars ─────────────────────────────────
-    missing = [v for v in REQUIRED_ENV_VARS if not os.environ.get(v)]
-    if missing:
+    # ── pre-flight: API key for the provider this request selects ─────
+    provider = (req.llm_provider or DEFAULT_CONFIG.get("llm_provider", "")).lower()
+    key_var = PROVIDER_KEY_ENV.get(provider)
+    if key_var and not os.environ.get(key_var):
         raise HTTPException(
             503,
-            f"Backend not ready: missing environment variable(s): {', '.join(missing)}. "
-            f"Set them in the project .env file.",
+            f"Backend not ready for provider '{provider}': missing environment "
+            f"variable {key_var}. Set it in the project .env file.",
         )
 
     job_id = str(uuid.uuid4())[:8]
