@@ -1868,7 +1868,10 @@ function App() {
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>
 <!-- Traders of the Round Table — castle UI pack (drop-in) -->
-<link rel="stylesheet" href="castle.css">
-<script defer src="castle-council.js"></script>
+<!-- ?v= cache-buster: bump when castle assets change (stale-tab caching bit us twice) -->
+<link rel="stylesheet" href="castle.css?v=20260702a">
+<script defer src="castle-council.js?v=20260702a"></script>
+<script defer src="castle-audio.js?v=20260702a"></script>
+<script defer src="castle-share.js?v=20260702a"></script>
 </body>
 </html>

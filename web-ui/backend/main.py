@@ -31,7 +31,7 @@ import dotenv
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -708,6 +708,15 @@ async def get_report_markdown(ticker: str, date: str):
         iter(["\n".join(sections)]),
         media_type="text/markdown",
     )
+
+
+# ── Root redirect → Round Table ──────────────────────────────────────
+
+
+@app.get("/")
+async def root_redirect():
+    """Redirect the root URL to the Round Table castle UI."""
+    return RedirectResponse(url="/the-bazaar/", status_code=307)
 
 
 # ── Static files (mounted last so API routes take precedence) ──────────
