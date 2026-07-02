@@ -23,7 +23,7 @@ import threading
 import traceback
 import uuid
 from datetime import date as date_type
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -352,25 +352,34 @@ def _run_analysis(job: Job, request: AnalyzeRequest) -> None:
             request.ticker, request.date, asset_type="stock", past_context=past_context
         )
         args = graph.propagator.get_graph_args()
+        # The propagator (shared with the CLI) asks for stream_mode="values",
+        # where every chunk is the FULL state dict — its first key is
+        # "messages" (a list), so _dispatch_chunk_event's isinstance-dict
+        # guard rejected every chunk and NO typed events (report/debate/
+        # decision) ever reached live clients. "updates" mode yields
+        # {node_name: state_delta} — real node names, per-node deltas —
+        # which is the shape the dispatcher was written for.
+        args["stream_mode"] = "updates"
 
         job.put_event(
             "status", {"message": "Graph running — streaming nodes now.", "status": "running"}
         )
 
-        # ── stream every langgraph chunk as an SSE event ──────────────
+        # ── stream every langgraph node delta as SSE events ───────────
         trace: List[Dict[str, Any]] = []
         for chunk in graph.graph.stream(init_agent_state, **args):
-            node_names = list(chunk.keys())
-            node = node_names[0] if node_names else "unknown"
-            node_data = chunk[node]
+            if not isinstance(chunk, dict):
+                continue
+            for node, node_data in chunk.items():
+                _dispatch_chunk_event(job, graph, node, node_data)
+                if isinstance(node_data, dict):
+                    trace.append(node_data)
 
-            _dispatch_chunk_event(job, graph, node, node_data)
-            trace.append(chunk)
-
-        # ── merge into final state (mirrors debug path) ───────────────
-        final_state: Dict[str, Any] = {}
-        for c in trace:
-            final_state.update(c)
+        # ── merge into final state (init ∪ node deltas == the final
+        #    values-mode state: unwritten channels only exist in init) ──
+        final_state: Dict[str, Any] = dict(init_agent_state)
+        for delta in trace:
+            final_state.update(delta)
 
         graph.curr_state = final_state
         graph._log_state(request.date, final_state)
@@ -404,58 +413,101 @@ def _run_analysis(job: Job, request: AnalyzeRequest) -> None:
         timer.cancel()
 
 
+# Which risk_debate_state response field belongs to which node — the
+# debator turns carry their argument here, NOT in judge_decision.
+_RISK_RESPONSE_FIELDS = {
+    "Aggressive Analyst": "current_aggressive_response",
+    "Risky Analyst": "current_aggressive_response",
+    "Conservative Analyst": "current_conservative_response",
+    "Safe Analyst": "current_conservative_response",
+    "Neutral Analyst": "current_neutral_response",
+}
+
+
 def _dispatch_chunk_event(
     job: Job,
     graph: TradingAgentsGraph,
     node: str,
     node_data: Dict[str, Any],
 ) -> None:
-    """Inspect a single LangGraph chunk and emit typed SSE events."""
+    """Emit typed SSE events for one updates-mode node delta.
+
+    A single delta can carry several state fields (e.g. the Research
+    Manager returns investment_debate_state AND investment_plan), so
+    this emits every applicable event rather than first-match-return.
+    """
     if not isinstance(node_data, dict):
         return
 
-    # ── reports ──
+    emitted = False
+
+    # ── analyst reports ──
     for section in ("market_report", "sentiment_report", "news_report", "fundamentals_report"):
-        if section in node_data:
+        if node_data.get(section):
             job.put_event("report", {
                 "section": section,
                 "report": node_data[section],
                 "node": node,
             })
-            return
+            emitted = True
 
-    # ── debates ──
+    # ── investment debate (bull/bear turns + the manager's directive) ──
     if "investment_debate_state" in node_data:
-        deb = node_data["investment_debate_state"]
-        job.put_event("debate", {
-            "debate_type": "investment",
-            "current_response": deb.get("current_response", ""),
-            "judge_decision": deb.get("judge_decision", ""),
-            "node": node,
-        })
-        return
-
-    if "risk_debate_state" in node_data:
-        risk = node_data["risk_debate_state"]
-        job.put_event("debate", {
-            "debate_type": "risk",
-            "judge_decision": risk.get("judge_decision", ""),
-            "node": node,
-        })
-        return
-
-    # ── trader plan ──
-    if "trader_investment_plan" in node_data or "investment_plan" in node_data:
-        plan = node_data.get("trader_investment_plan", node_data.get("investment_plan", ""))
+        deb = node_data["investment_debate_state"] or {}
+        if deb.get("judge_decision"):
+            # Research Manager's ruling doubles as the investment plan
+            # (research_manager sets current_response == judge_decision ==
+            # investment_plan). Emit it ONCE, as the plan report — the
+            # terminal keys its "directive received" tracking off this frame.
+            plan = node_data.get("investment_plan") or deb["judge_decision"]
+            job.put_event("report", {
+                "section": "trader_plan",
+                "report": plan,
+                "node": node,
+            })
+        else:
+            job.put_event("debate", {
+                "debate_type": "investment",
+                "current_response": deb.get("current_response", ""),
+                "judge_decision": "",
+                "node": node,
+            })
+        emitted = True
+    elif node_data.get("investment_plan"):
         job.put_event("report", {
             "section": "trader_plan",
-            "report": plan,
+            "report": node_data["investment_plan"],
             "node": node,
         })
-        return
+        emitted = True
+
+    # ── risk chamber ──
+    if "risk_debate_state" in node_data:
+        risk = node_data["risk_debate_state"] or {}
+        resp_field = _RISK_RESPONSE_FIELDS.get(node)
+        response = risk.get(resp_field, "") if resp_field else ""
+        if response:
+            job.put_event("debate", {
+                "debate_type": "risk",
+                "current_response": response,
+                "judge_decision": "",
+                "node": node,
+            })
+            emitted = True
+        # The PM's risk judge_decision == final_trade_decision, which the
+        # decision event below carries verbatim — no duplicate frame.
+
+    # ── trader plan ──
+    if node_data.get("trader_investment_plan"):
+        job.put_event("report", {
+            "section": "trader_plan",
+            "report": node_data["trader_investment_plan"],
+            "node": node,
+        })
+        emitted = True
 
     # ── final decision ──
-    if "final_trade_decision" in node_data:
+    if node_data.get("final_trade_decision"):
         decide = node_data["final_trade_decision"]
         try:
             sig = graph.process_signal(decide)
@@ -466,6 +518,9 @@ def _dispatch_chunk_event(
             "signal": sig,
             "node": node,
         })
+        emitted = True
+
+    if emitted:
         return
 
     # ── messages (LLM tool-calls, etc.) ──
@@ -644,6 +699,84 @@ async def list_reports():
             )
 
     return ReportList(reports=reports)
+
+
+# NOTE: must be registered BEFORE /reports/{ticker}/{date} — Starlette matches
+# routes in registration order and "prices" would otherwise bind as {ticker}.
+@app.get("/reports/prices/{ticker}")
+def get_price_history(
+    ticker: str,
+    date: Optional[str] = Query(None, description="End date YYYY-MM-DD (default: today)"),
+    days: int = Query(120, ge=5, le=365),
+):
+    """OHLCV history for the terminal UI's chart backdrop (read-only, additive).
+
+    Sync `def` on purpose: FastAPI runs it in the threadpool, so the
+    yfinance call (with its rate-limit retries) never blocks the SSE loop.
+    """
+    import yfinance as yf
+
+    from tradingagents.dataflows.stockstats_utils import yf_retry
+
+    symbol = ticker.strip().upper()
+    if not re.fullmatch(r"[A-Z]{1,10}", symbol):
+        raise HTTPException(400, f"Invalid ticker: {ticker!r}")
+    try:
+        end = (
+            datetime.strptime(date, "%Y-%m-%d").date() if date else date_type.today()
+        )
+    except ValueError:
+        raise HTTPException(400, f"Invalid date (want YYYY-MM-DD): {date!r}")
+    start = end - timedelta(days=days)
+
+    try:
+        df = yf_retry(
+            lambda: yf.Ticker(symbol).history(
+                start=start.isoformat(),
+                end=(end + timedelta(days=1)).isoformat(),
+            )
+        )
+    except Exception:  # noqa: BLE001 — surface feed failures as 502
+        logger.warning("Price feed failure for %s:\n%s", symbol, traceback.format_exc())
+        raise HTTPException(502, "Price feed unavailable (upstream error)")
+
+    if df is None or df.empty:
+        raise HTTPException(404, f"No price data for {symbol}")
+    if df.index.tz is not None:
+        df.index = df.index.tz_localize(None)
+
+    series = []
+    for idx, row in df.iterrows():
+        try:
+            o, h, l, c = (float(row["Open"]), float(row["High"]), float(row["Low"]), float(row["Close"]))
+        except (KeyError, TypeError, ValueError):
+            continue
+        if any(v != v for v in (o, h, l, c)):
+            # NaN OHLC rows (halts, dividend-only days) must not 500 the
+            # whole series — JSONResponse renders with allow_nan=False.
+            continue
+        try:
+            vol = int(row.get("Volume", 0) or 0)
+        except (TypeError, ValueError):
+            vol = 0
+        series.append(
+            {
+                "date": idx.strftime("%Y-%m-%d"),
+                "o": round(o, 2),
+                "h": round(h, 2),
+                "l": round(l, 2),
+                "c": round(c, 2),
+                "v": vol,
+            }
+        )
+    if not series:
+        raise HTTPException(404, f"No usable price rows for {symbol}")
+    return {
+        "ticker": symbol,
+        "start": start.isoformat(),
+        "end": end.isoformat(),
+        "series": series,
+    }
 
 
 @app.get("/reports/{ticker}/{date}")
