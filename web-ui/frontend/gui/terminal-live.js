@@ -110,6 +110,7 @@
     activeNode: '', wireText: 'STANDING BY',
     log: [],
     verdict: null,           // {signal, text}
+    usage: null,             // {cost_usd, llm_calls, total_tokens, ...}
     prices: null,
     typing: null,            // typewriter handle
   };
@@ -303,7 +304,8 @@
     D.hudMeta = el('div', 't98-hud-meta');
     D.elapsed = el('span', '', 'T+00:00');
     D.lastData = el('span', '', '');
-    D.hudMeta.appendChild(D.elapsed); D.hudMeta.appendChild(D.lastData);
+    D.cost = el('span', 't98-cost', '');
+    D.hudMeta.appendChild(D.elapsed); D.hudMeta.appendChild(D.lastData); D.hudMeta.appendChild(D.cost);
 
     var menu = el('div', 't98-menu');
     D.menu = {};
@@ -545,7 +547,7 @@
     D.dialogBody.appendChild(form);
 
     D.dialogBtns.innerHTML = '';
-    var go = el('button', 't98-btn t98-primary', '▶ BEGIN ANALYSIS');
+    var go = el('button', 't98-btn t98-primary t98-form-go', '▶ BEGIN ANALYSIS');
     go.addEventListener('click', submitForm);
     D.dialogBtns.appendChild(go);
 
@@ -637,7 +639,8 @@
     S.mode = 'running';
     S.ticker = ticker; S.date = date;
     S.pages = []; S.pageIdx = -1; S.seenPageKeys = {}; S.gotSections = {};
-    S.log = []; S.verdict = null; S.auto = true;
+    S.log = []; S.verdict = null; S.usage = null; S.auto = true;
+    if (D.cost) D.cost.textContent = '';
     S.startedAt = Date.now(); S.lastDataAt = 0; S.lastFrameAt = 0;
     STAGES.forEach(function (st) { setStage(st.id, 'pending'); });
     S.activeNode = '';
@@ -789,6 +792,7 @@
       case 'decision':  return onDecision(d);
       case 'message':   return onMessage(d);
       case 'chunk':     return onChunk(d);
+      case 'usage':     return onUsage(d);
       case 'complete':  return onComplete(d);
       case 'error':     return failRun(d.message || 'backend error');
       default:          return onMessage(d);
@@ -916,10 +920,11 @@
     var sig = (signal || '').toUpperCase();
     var cls = sig === 'BUY' ? 't98-buy' : sig === 'SELL' ? 't98-sell' : 't98-hold';
     var seal = sig ? '<div style="text-align:center"><span class="t98-seal ' + cls + '">' + esc(sig) + '</span></div>' : '';
+    var costLine = S.usage ? '<div class="t98-cost-line">RUN COST ' + esc(fmtCost(S.usage)) + '</div>' : '';
     pushPage({
       key: 'verdict', kind: 'verdict', seat: 'judge',
       title: 'THE RULING', sub: 'PORTFOLIO MANAGER · VERBATIM',
-      html: seal + mdToHtml(fullText || '(no ruling text)'),
+      html: seal + costLine + mdToHtml(fullText || '(no ruling text)'),
       raw: (sig ? '[' + sig + ']\n\n' : '') + (fullText || ''),
       exportTitle: 'Final Ruling (' + (sig || 'see text') + ')', exportBody: fullText || '',
     });
@@ -935,8 +940,27 @@
     setWire('VERDICT: ' + (sig || 'SEE RULING'));
   }
 
+  function fmtCost(u) {
+    if (!u) return '';
+    var cost = (typeof u.cost_usd === 'number') ? u.cost_usd : 0;
+    var dollars = cost < 0.01 ? '<$0.01' : '$' + cost.toFixed(2);
+    var toks = (u.total_tokens || 0);
+    var tokStr = toks >= 1000 ? (toks / 1000).toFixed(0) + 'K' : String(toks);
+    return dollars + ' · ' + (u.llm_calls || 0) + ' LLM calls · ' + tokStr + ' tokens' +
+      (u.cached_tokens ? ' (' + Math.round(u.cached_tokens / Math.max(1, u.prompt_tokens) * 100) + '% cached)' : '');
+  }
+
+  function onUsage(d) {
+    if (!d) return;
+    S.usage = d;
+    // Live cost readout in the HUD meta row.
+    if (D.cost) D.cost.textContent = 'COST ' + ((d.cost_usd || 0) < 0.01 ? '<$0.01' : '$' + Number(d.cost_usd).toFixed(2));
+    logEvt('sys', 'run cost ' + fmtCost(d));
+  }
+
   function onComplete(d) {
     var res = (d && d.result) || {};
+    if (!S.usage && res.usage) onUsage(res.usage);
     if (!S.verdict) {
       var full = String(res.decision || '').trim();
       var sig = (res.signal || classifySignal(full) || '').toUpperCase();

@@ -630,6 +630,15 @@ body.t98-mode { overflow: hidden; background: var(--t98-bg0); }
   text-transform: uppercase;
   animation: t98SealIn 0.5s ease-out;
 }
+.t98-cost { color: var(--t98-green); }
+.t98-cost-line {
+  text-align: center;
+  font-family: var(--t98-font-dot);
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: var(--t98-ink-soft);
+  margin: -4px 0 10px;
+}
 .t98-seal.t98-buy  { color: #14682e; border-color: #14682e; }
 .t98-seal.t98-sell { color: var(--t98-maroon); border-color: var(--t98-maroon); }
 .t98-seal.t98-hold { color: #7a5a10; border-color: #7a5a10; }
@@ -741,9 +750,121 @@ body.t98-mode { overflow: hidden; background: var(--t98-bg0); }
 }
 
 /* ── narrow screens ───────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════
+   RESPONSIVE — the terminal is fixed/full-screen; these tiers reflow it
+   for tablets and phones without touching the desktop layout.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── tablet / small desktop ─────────────────────────────────────── */
 @media (max-width: 900px) {
-  .t98-stage { grid-template-columns: 1fr; }
-  .t98-advisor { flex-direction: row; align-self: start; }
-  .t98-portrait-bezel img { width: 92px; height: 104px; }
+  #t98-root { min-width: 0; }
+  .t98-stage {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+    gap: 10px;
+    padding: 12px 12px 8px;
+  }
+  .t98-advisor {
+    flex-direction: row;
+    align-self: start;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 0;
+  }
+  .t98-portrait-bezel img { width: 88px; height: 100px; }
   .t98-nameplate { font-size: 15px; }
+  .t98-dialog { width: 100%; min-height: 0; }
+}
+
+/* ── phone ──────────────────────────────────────────────────────── */
+@media (max-width: 560px) {
+  html, body { -webkit-text-size-adjust: 100%; }
+  /* let the top bar + HUD grow (wrap) and the stage take the rest */
+  #t98-root { min-width: 0; grid-template-rows: auto 1fr auto auto; }
+
+  /* top bar: title + live status + price; the clock is expendable */
+  .t98-topbar { font-size: 13px; overflow: hidden; }
+  .t98-topbar > * { padding: 0 8px; }
+  .t98-title { font-size: 12px; letter-spacing: 0; overflow: hidden; text-overflow: ellipsis; }
+  .t98-clock { display: none; }
+  .t98-tick, .t98-tick-price { font-size: 12px; }
+  .t98-link { font-size: 11px; }
+
+  /* stage: slim advisor strip above a full-width dialog */
+  .t98-stage { padding: 8px 8px 6px; gap: 8px; }
+  .t98-advisor { gap: 10px; }
+  .t98-portrait-bezel { padding: 3px; border-width: 2px; }
+  .t98-portrait-bezel::after { inset: 3px; }
+  .t98-portrait-bezel img { width: 52px; height: 60px; object-position: 50% 6%; }
+  .t98-nameplate { font-size: 12px; padding: 1px 8px; }
+  .t98-advisor.t98-speaking .t98-portrait-bezel { box-shadow: 0 0 14px rgba(255,184,77,.45), inset 0 0 12px rgba(3,12,18,.9); }
+
+  /* dialog: tighter type, larger tap targets */
+  .t98-dialog { border-width: 2px; box-shadow: 4px 4px 0 rgba(2,8,12,.6); }
+  .t98-dialog-title { font-size: 12px; letter-spacing: 1px; margin-top: -12px; padding: 1px 12px; }
+  .t98-dialog-sub { font-size: 10px; }
+  .t98-dialog-body { font-size: 12.5px; padding: 10px 12px; }
+  .t98-dialog-body h1 { font-size: 15px; }
+  .t98-dialog-body h2, .t98-dialog-body h3, .t98-dialog-body h4 { font-size: 13px; }
+  .t98-dialog-body table { font-size: 11px; }
+  .t98-dialog-btns { padding: 6px 8px 8px; gap: 6px; }
+  .t98-btn { padding: 8px 12px; font-size: 12px; }
+  .t98-page-pos { font-size: 11px; }
+
+  /* wire: drop the attribution here (it's in the HUD-less footer anyway) */
+  .t98-wire { font-size: 12px; padding: 0 8px; }
+  .t98-credit { display: none; }
+
+  /* HUD: pipeline collapses to a lamp-strip; menu scrolls on its own row.
+     The active-agent portrait + the "NOW:" line carry the stage names. */
+  .t98-hud { flex-wrap: wrap; height: auto; align-items: center; }
+  .t98-stages { order: 1; }
+  .t98-stage-seg { font-size: 0; gap: 0; padding: 8px 7px; }
+  .t98-stage-seg .t98-seg-lamp { width: 11px; height: 11px; }
+  .t98-hud-meta { order: 2; font-size: 13px; padding: 0 10px; border-left: none; }
+  .t98-hud-now {
+    order: 3; flex-basis: 100%;
+    font-size: 10px; padding: 3px 10px;
+    border-top: 1px solid rgba(140, 35, 64, 0.4);
+  }
+  .t98-menu {
+    order: 4; flex-basis: 100%;
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    border-left: none; border-top: 1px solid rgba(140, 35, 64, 0.4);
+  }
+  .t98-menu-btn { flex: 0 0 auto; padding: 11px 13px; font-size: 11px; }
+
+  /* floating windows: near-fullscreen (override the JS inline right/top) */
+  .t98-window {
+    left: 6px !important; right: 6px !important; top: 42px !important;
+    min-width: 0; max-width: none; width: auto; max-height: 76vh;
+  }
+  .t98-window-body { font-size: 15px; }
+  .t98-index-item, .t98-log-line { font-size: 14px; }
+
+  /* summon form: labels stack over full-width, zoom-safe (≥16px) inputs */
+  .t98-form-row { flex-wrap: wrap; gap: 6px; }
+  .t98-form label { min-width: 0; flex-basis: 100%; }
+  .t98-check { flex-basis: auto; }
+  .t98-input, .t98-select { font-size: 17px; }
+  .t98-input.t98-ticker, .t98-input.t98-wide { width: 100%; }
+  .t98-adv-panel { padding: 8px; }
+  /* full-width primary CTA on the summon form (no right-edge clip) */
+  .t98-dialog-btns { justify-content: stretch; }
+  .t98-form-go { width: 100%; text-align: center; padding: 12px; font-size: 14px; }
+
+  /* intro title card */
+  .t98-intro-art { height: auto; max-height: 72vh; max-width: 94vw; }
+  .t98-intro-bios { font-size: 12px; top: 8px; left: 10px; }
+  .t98-intro-press { font-size: 13px; letter-spacing: 3px; margin-top: 12px; }
+  .t98-intro-foot { font-size: 9px; letter-spacing: 1px; bottom: 8px; }
+
+  .t98-seal { font-size: 20px; letter-spacing: 4px; padding: 4px 16px; }
+  .t98-toast { left: 8px; right: 8px; top: 46px; max-width: none; }
+}
+
+/* short landscape (phones held sideways): reclaim vertical space */
+@media (max-height: 480px) and (max-width: 900px) {
+  .t98-advisor .t98-portrait-bezel img { width: 44px; height: 50px; }
+  .t98-intro-art { max-height: 84vh; }
 }

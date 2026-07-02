@@ -248,6 +248,8 @@ class Job:
         # the other end drained by the async SSE generator.
         self._q: queue.Queue = queue.Queue()
         self.thread: Optional[threading.Thread] = None
+        self.meter: Optional["TokenMeter"] = None
+        self.usage: Optional[Dict[str, Any]] = None
         self.result: Optional[Dict[str, Any]] = None
         self.error: Optional[str] = None
         self.final_state: Optional[Dict[str, Any]] = None
@@ -283,6 +285,127 @@ class Job:
 # In-memory store.  Sufficient for short-lived jobs; a real deployment
 # would swap this for Redis.
 _jobs: Dict[str, Job] = {}
+
+
+# ── token / cost metering ──────────────────────────────────────────────
+# Price per 1M tokens (USD).  DeepSeek V4, official docs, 2026-07:
+# (cache_hit_input, cache_miss_input, output).  Add rows as providers are
+# used; unknown models fall back to a deliberately-high estimate so a run
+# is never under-quoted.
+MODEL_PRICING: Dict[str, tuple] = {
+    "deepseek-v4-pro":   (0.003625, 0.435, 0.87),
+    "deepseek-v4-flash": (0.0028,   0.14,  0.28),
+    "deepseek-chat":     (0.0028,   0.14,  0.28),
+    "deepseek-reasoner": (0.003625, 0.435, 0.87),
+    "gpt-5.4":           (0.075,    0.75,  6.0),
+    "gpt-5.4-mini":      (0.0125,   0.125, 1.0),
+}
+_FALLBACK_PRICE = (0.005, 0.60, 1.20)
+
+
+def _price_for(model: str) -> tuple:
+    m = (model or "").lower()
+    for key, price in MODEL_PRICING.items():
+        if key in m:
+            return price
+    return _FALLBACK_PRICE
+
+
+try:
+    from langchain_core.callbacks import BaseCallbackHandler as _BaseCB
+except Exception:  # pragma: no cover — langchain always present at runtime
+    _BaseCB = object
+
+
+class TokenMeter(_BaseCB):
+    """LangChain callback that tallies token usage + cost across a run.
+
+    Attached to the graph's LLM constructor (callbacks=[...]); every
+    on_llm_end fans in here.  Captures cache-hit tokens where the provider
+    reports them (DeepSeek's prompt_cache_hit_tokens / OpenAI's
+    prompt_tokens_details.cached_tokens), so the cost reflects real
+    prompt-cache savings.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.calls = 0
+        self.by_model: Dict[str, Dict[str, int]] = {}
+        self._lock = threading.Lock()
+
+    def on_llm_end(self, response, **kwargs) -> None:  # noqa: D401
+        try:
+            usage, model = self._extract(response)
+            if not usage:
+                return
+            prompt = int(usage.get("prompt_tokens") or usage.get("input_tokens") or 0)
+            completion = int(usage.get("completion_tokens") or usage.get("output_tokens") or 0)
+            cached = usage.get("prompt_cache_hit_tokens")
+            if cached is None:
+                details = usage.get("prompt_tokens_details") or {}
+                if isinstance(details, dict):
+                    cached = details.get("cached_tokens", 0)
+                elif details is not None:
+                    cached = getattr(details, "cached_tokens", 0)
+            cached = int(cached or 0)
+            model = (model or "unknown").lower()
+            with self._lock:
+                self.calls += 1
+                b = self.by_model.setdefault(model, {"prompt": 0, "cached": 0, "completion": 0})
+                b["prompt"] += prompt
+                b["cached"] += cached
+                b["completion"] += completion
+        except Exception:  # noqa: BLE001 — metering must never break a run
+            pass
+
+    # Accept both callback styles langchain may use.
+    on_llm_error = lambda self, *a, **k: None  # noqa: E731
+
+    @staticmethod
+    def _extract(response):
+        out = getattr(response, "llm_output", None) or {}
+        usage = None
+        model = None
+        if isinstance(out, dict):
+            usage = out.get("token_usage") or out.get("usage")
+            model = out.get("model_name") or out.get("model")
+        if not usage:
+            for gen_list in getattr(response, "generations", []) or []:
+                for gen in gen_list:
+                    msg = getattr(gen, "message", None)
+                    um = getattr(msg, "usage_metadata", None)
+                    if um:
+                        usage = um
+                        break
+                    info = getattr(gen, "generation_info", None) or {}
+                    if isinstance(info, dict) and info.get("model_name"):
+                        model = info["model_name"]
+                if usage:
+                    break
+        return usage, model
+
+    def summary(self) -> Dict[str, Any]:
+        tp = tc = tcomp = 0
+        cost = 0.0
+        with self._lock:
+            for model, b in self.by_model.items():
+                hit_in, miss_in, out_p = _price_for(model)
+                cached = b["cached"]
+                miss = max(0, b["prompt"] - cached)
+                cost += cached / 1e6 * hit_in + miss / 1e6 * miss_in + b["completion"] / 1e6 * out_p
+                tp += b["prompt"]
+                tc += cached
+                tcomp += b["completion"]
+            by_model = {k: dict(v) for k, v in self.by_model.items()}
+        return {
+            "llm_calls": self.calls,
+            "prompt_tokens": tp,
+            "cached_tokens": tc,
+            "completion_tokens": tcomp,
+            "total_tokens": tp + tcomp,
+            "cost_usd": round(cost, 4),
+            "by_model": by_model,
+        }
 
 # Maximum time (seconds) a single analysis job is allowed to run before
 # the worker thread is considered stalled and the job is failed.
@@ -373,10 +496,13 @@ def _run_analysis(job: Job, request: AnalyzeRequest) -> None:
         config = _build_config(request)
         job.put_event("status", {"message": "Building graph...", "status": "building"})
 
+        meter = TokenMeter()
+        job.meter = meter
         graph = TradingAgentsGraph(
             selected_analysts=request.analysts,
             debug=False,
             config=config,
+            callbacks=[meter],
         )
 
         job.put_event(
@@ -434,19 +560,32 @@ def _run_analysis(job: Job, request: AnalyzeRequest) -> None:
             final_state.get("final_trade_decision", "")
         )
 
+        usage = meter.summary()
+        logging.getLogger("uvicorn.error").info(
+            "Run %s cost: $%.4f | %d LLM calls | %d prompt (%d cached) + %d completion tokens",
+            job.job_id, usage["cost_usd"], usage["llm_calls"],
+            usage["prompt_tokens"], usage["cached_tokens"], usage["completion_tokens"],
+        )
+
         job.final_state = final_state
+        job.usage = usage
         job.result = {
             "ticker": request.ticker,
             "date": request.date,
             "decision": final_state.get("final_trade_decision", ""),
             "signal": short_signal,
+            "usage": usage,
         }
         job.status = "done"
+        job.put_event("usage", usage)
         job.put_event("complete", {"message": "Analysis complete", "result": job.result})
 
     except Exception:
         tb = traceback.format_exc()
+        # uvicorn swallows the app logger — mirror crashes to its namespace
+        # so they're visible in the service log, not just eaten silently.
         logger.error("Analysis job %s crashed:\n%s", job.job_id, tb)
+        logging.getLogger("uvicorn.error").error("Analysis job %s crashed:\n%s", job.job_id, tb)
         job.status = "error"
         job.error = tb
         job.put_event("error", {"message": f"Analysis failed: {tb[-300:]}"})
