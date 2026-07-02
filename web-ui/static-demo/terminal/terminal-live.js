@@ -116,7 +116,7 @@
   STAGES.forEach(function (st) { S.stages[st.id] = 'pending'; });
 
   var D = {};                // DOM refs
-  var timers = { clock: null, heartbeatOff: null, advance: null, attract: null, rx: null };
+  var timers = { clock: null, heartbeatOff: null, advance: null, attract: null, rx: null, intro: null };
 
   /* ── attract mode: the firm's roster cycles while the terminal idles ── */
   var attractIdx = 0;
@@ -1341,10 +1341,61 @@
     };
   };
 
+  /* ── intro / title screen (PC-98 box art boot) ────────────────── */
+  function showIntro() {
+    if (document.getElementById('t98-intro')) return;
+    var ov = el('div');
+    ov.id = 't98-intro';
+    ov.innerHTML =
+      '<div class="t98-intro-bios" id="t98-intro-bios"></div>' +
+      '<img class="t98-intro-art" src="design/pc98-boxart.jpg" alt="Trading Agents — an AI Hedge Fund Simulator">' +
+      '<div class="t98-intro-press" id="t98-intro-press">PRESS ANY KEY</div>' +
+      '<div class="t98-intro-foot">FNC-9801 · COUNCIL TERMINAL · BUILT ON TRADINGAGENTS © TAURIC RESEARCH</div>';
+    D.root.appendChild(ov);
+
+    // BIOS POST lines, then the blinking prompt
+    var bios = ['TRADINGAGENTS SYSTEMS 98 BIOS v1.0', 'MAIN MEMORY CHECK .... 640K OK', 'COUNCIL SEATS ........ 8 OK', 'LOADING TITLE ........'];
+    var bel = document.getElementById('t98-intro-bios');
+    bios.forEach(function (line, i) {
+      setTimeout(function () { if (bel) bel.textContent += line + '\n'; }, REDUCED_MOTION ? 0 : 160 * i);
+    });
+    setTimeout(function () {
+      var p = document.getElementById('t98-intro-press');
+      if (p) p.classList.add('t98-on');
+    }, REDUCED_MOTION ? 0 : 1500);
+
+    function onAnyKey(e) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return; // keep shortcuts alive
+      e.preventDefault();
+      e.stopPropagation();
+      dismissIntro();
+    }
+    document.addEventListener('keydown', onAnyKey, true);
+    ov.addEventListener('click', dismissIntro);
+    S.introCleanup = function () { document.removeEventListener('keydown', onAnyKey, true); };
+    // Never trap a walk-away viewer (or the demo driver) on the title.
+    timers.intro = setTimeout(dismissIntro, 12000);
+  }
+
+  function dismissIntro() {
+    var ov = document.getElementById('t98-intro');
+    if (!ov) return;
+    clearTimeout(timers.intro);
+    if (S.introCleanup) { S.introCleanup(); S.introCleanup = null; }
+    if (REDUCED_MOTION) {
+      ov.remove();
+      return;
+    }
+    ov.classList.add('t98-intro-off'); // CRT power-off collapse
+    setTimeout(function () { ov.remove(); }, 500);
+  }
+  window.__terminalDismissIntro = dismissIntro;
+
   /* ── boot ─────────────────────────────────────────────────────── */
   function boot() {
     buildUI();
     resetToIdle();
+    showIntro();
     // Preload the cast so the first testimony doesn't flash.
     Object.keys(CAST).forEach(function (k) {
       var im = new Image();

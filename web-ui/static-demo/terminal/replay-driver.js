@@ -106,6 +106,14 @@
     }, true);
   }
 
+  function whenIntroGone(cb) {
+    // Hold the replay while the box-art title screen is up (dismissed by
+    // any key/click; the terminal auto-dismisses it after ~12s anyway).
+    var t = setInterval(function () {
+      if (!document.getElementById('t98-intro')) { clearInterval(t); cb(); }
+    }, 250);
+  }
+
   function boot() {
     var tries = 0;
     var poll = setInterval(function () {
@@ -114,7 +122,7 @@
         clearInterval(poll);
         rewireMenus();
         addBadge();
-        setTimeout(startReplay, 1400);
+        whenIntroGone(function () { setTimeout(startReplay, 900); });
       } else if (tries > 100) {
         clearInterval(poll);
       }

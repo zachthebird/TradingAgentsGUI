@@ -639,6 +639,76 @@ body.t98-mode { overflow: hidden; background: var(--t98-bg0); }
   100% { transform: scale(1) rotate(0); }
 }
 
+/* ── intro / title screen (box-art boot) ──────────────────────── */
+#t98-intro {
+  position: absolute;
+  inset: 0;
+  z-index: 940; /* under the CRT overlay (950) so scanlines dress the art */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(ellipse 60% 75% at 50% 46%, rgba(224, 96, 200, 0.14), transparent 70%),
+    radial-gradient(ellipse at 50% 50%, #061821 0%, #02090e 75%);
+  transform-origin: 50% 50%;
+}
+.t98-intro-art {
+  height: min(80vh, 920px);
+  max-width: 88vw;
+  object-fit: contain;
+  border: 1px solid #10303c;
+  box-shadow:
+    0 0 46px rgba(224, 96, 200, 0.30),
+    0 0 110px rgba(67, 217, 217, 0.20),
+    0 22px 60px rgba(0, 0, 0, 0.65);
+  opacity: 0;
+  transform: scale(0.965);
+  animation: t98IntroIn 0.9s ease-out 0.55s forwards;
+}
+@keyframes t98IntroIn {
+  to { opacity: 1; transform: scale(1); }
+}
+.t98-intro-press {
+  margin-top: 18px;
+  font-family: var(--t98-font-dot);
+  font-size: 15px;
+  letter-spacing: 5px;
+  color: var(--t98-amber);
+  visibility: hidden;
+}
+.t98-intro-press.t98-on {
+  visibility: visible;
+  animation: t98Blink 1.1s steps(2) infinite;
+}
+.t98-intro-bios {
+  position: absolute;
+  top: 14px;
+  left: 18px;
+  font-family: var(--t98-font-crt);
+  font-size: 16px;
+  line-height: 1.35;
+  color: var(--t98-cyan);
+  white-space: pre;
+  opacity: 0.75;
+}
+.t98-intro-foot {
+  position: absolute;
+  bottom: 12px;
+  font-family: var(--t98-font-dot);
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--t98-cyan-dim);
+}
+.t98-intro-off {
+  animation: t98CrtOff 0.48s ease-in forwards;
+}
+@keyframes t98CrtOff {
+  0%   { transform: scaleY(1);              filter: brightness(1); }
+  55%  { transform: scaleY(0.012);          filter: brightness(2.6); }
+  100% { transform: scaleY(0.002) scaleX(0.5); filter: brightness(4); opacity: 0; }
+}
+
 /* ── toast for errors outside dialog ──────────────────────────── */
 .t98-toast {
   position: absolute;
@@ -665,6 +735,9 @@ body.t98-mode { overflow: hidden; background: var(--t98-bg0); }
   .t98-advisor.t98-speaking .t98-portrait-bezel img,
   .t98-advisor.t98-swap .t98-portrait-bezel img,
   .t98-advisor.t98-speaking.t98-swap .t98-portrait-bezel img { animation: none; }
+  .t98-intro-art { animation: none; opacity: 1; transform: none; }
+  .t98-intro-press.t98-on { animation: none; }
+  .t98-intro-off { animation: none; opacity: 0; }
 }
 
 /* ── narrow screens ───────────────────────────────────────────── */
