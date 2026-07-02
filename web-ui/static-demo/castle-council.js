@@ -51,8 +51,11 @@ const AGENT_TO_SEAT = {
   'social':'social','vera':'social','Vera':'social',
   'news':'news','reed':'news','Reed':'news',
   'fundamentals':'fundamentals','sage':'fundamentals','Sage':'fundamentals',
-  'debater':'debater','bear':'debater','balthazar':'debater',
-  'risk':'risk','morwen':'risk',
+  // Balthazar is the BULL champion; Morwen is the BEAR champion.
+  // (Previous mapping had bull_researcher→Sage and bear_researcher→Balthazar,
+  // which put the bear's arguments in the bull's mouth on live runs.)
+  'debater':'debater','bull':'debater','balthazar':'debater',
+  'risk':'risk','bear':'risk','morwen':'risk',
   'trader':'trader','kael':'trader',
   'judge':'judge','aldric':'judge',
 
@@ -61,27 +64,29 @@ const AGENT_TO_SEAT = {
   'social_analyst':'social','sentiment_analyst':'social',
   'news_analyst':'news',
   'fundamentals_analyst':'fundamentals',
-  'bull':'fundamentals','bull_researcher':'fundamentals',
-  'bear_researcher':'debater',
+  'bull_researcher':'debater',
+  'bear_researcher':'risk',
   'research_manager':'judge',
-  'risk_manager':'risk',
+  'risk_manager':'judge',
   'researcher_judge':'judge','risk_judge':'judge',
-  'aggressive_analyst':'debater',
-  'neutral_analyst':'risk',
-  'conservative_analyst':'trader',
+  // Risk-team compression: pro-risk voice → Balthazar, cautious → Morwen,
+  // pragmatic middle → Kael (the trader whose plan is being stress-tested).
+  'aggressive_analyst':'debater','risky_analyst':'debater',
+  'neutral_analyst':'trader',
+  'conservative_analyst':'risk','safe_analyst':'risk',
   'portfolio_manager':'judge',
 
   // LangGraph node names (space-separated — exact match from backend)
   'market analyst':'market',
-  'sentiment analyst':'social',
+  'sentiment analyst':'social','social analyst':'social',
   'news analyst':'news',
   'fundamentals analyst':'fundamentals',
-  'bull researcher':'fundamentals',
-  'bear researcher':'debater',
+  'bull researcher':'debater',
+  'bear researcher':'risk',
   'research manager':'judge',
-  'aggressive analyst':'debater',
-  'neutral analyst':'risk',
-  'conservative analyst':'trader',
+  'aggressive analyst':'debater','risky analyst':'debater',
+  'neutral analyst':'trader',
+  'conservative analyst':'risk','safe analyst':'risk',
   'portfolio manager':'judge',
 };
 
@@ -528,7 +533,7 @@ function showMoveFlourish(speakerId, moveName){
 
 // ===== VERDICT BANNER =====
 
-function showVerdictBanner(verdict){
+function showVerdictBanner(verdict, verbatimRuling){
   advView = 'verdict';
   advVerdictRendered = true;
 
@@ -540,6 +545,13 @@ function showVerdictBanner(verdict){
 
   if (banner) banner.style.display = '';
   if (ruling) ruling.textContent = verdict.toUpperCase();
+
+  // Show the Portfolio Manager's actual ruling verbatim (first lines),
+  // not just the mapped seal — the real nuance is the point.
+  if (verbatimRuling && rationaleEl){
+    const clean = String(verbatimRuling).replace(/\*\*/g, '').replace(/\s+/g, ' ').trim();
+    if (clean) rationaleEl.textContent = clean.slice(0, 240) + (clean.length > 240 ? '…' : '');
+  }
 
   // Set verdict fill based on final momentum
   const v = verdict.toUpperCase();
@@ -553,8 +565,9 @@ function showVerdictBanner(verdict){
   if (splitEl){
     splitEl.textContent = 'Council: Bull ' + Math.round(advBullConviction) + '% · Bear ' + Math.round(advBearConviction) + '%';
   }
-  // Populate rationale from dialogue box text (last analyst testimony)
-  if (rationaleEl){
+  // Populate rationale from dialogue box text (last analyst testimony) —
+  // unless the Portfolio Manager's verbatim ruling was provided above.
+  if (rationaleEl && !verbatimRuling){
     var rationale = 'The council has weighed the evidence and rendered judgment.';
     var dialogueBody = document.getElementById('adv-dialogue-text');
     if (dialogueBody && dialogueBody.textContent && dialogueBody.textContent.length > 20){
@@ -619,17 +632,22 @@ function showLiveBubble(seatId, text){
   const isJudge = (seatId === 'judge');
 
   if (isBattleAgent){
-    // Battle view — bull vs bear
-    if (advView !== 'battle') setBattleView(seatId);
-    feedTypewriter(disp);
-
-    // Boost conviction for the speaker
-    if (seatId === advBattleBull) boostBullConviction(8);
-    else boostBearConviction(8);
-
-    // Move flourish
-    const moveName = seatId === advBattleBull ? 'GROWTH THESIS' : 'RISK EXPOSURE';
-    showMoveFlourish(seatId, moveName);
+    // Battle view — bull vs bear. The VS intro runs here, on the FIRST
+    // real debate event, so the battle framing tracks the actual pipeline
+    // phase instead of firing on a timer after the analyze POST.
+    const speakNow = function(){
+      feedTypewriter(disp);
+      if (seatId === advBattleBull) boostBullConviction(8);
+      else boostBearConviction(8);
+      const moveName = seatId === advBattleBull ? 'GROWTH THESIS' : 'RISK EXPOSURE';
+      showMoveFlourish(seatId, moveName);
+    };
+    if (advView !== 'battle'){
+      runVSIntro(function(){ setBattleView(seatId); speakNow(); });
+    } else {
+      setBattleView(seatId);
+      speakNow();
+    }
 
   } else if (isSoloAnalyst){
     // Solo analyst report — single-speaker ADV view
@@ -978,10 +996,18 @@ function installLiveWiring(){
 
       const result = dataPayload.result || {};
       const verdict = result.decision || result.final_trade_decision || result.recommendation || '';
-      const vm = String(verdict).match(/\b(BUY|SELL|HOLD)\b/i);
-      if (vm){
-        const v = vm[0].toUpperCase();
-        showVerdictBanner(v);
+      // The Portfolio Manager's real rulings are richer than BUY/SELL/HOLD
+      // (e.g. "Underweight", "Reduce", "Accumulate") — classify into a seal
+      // category but keep the verbatim ruling for display.
+      const vtext = String(verdict);
+      let v = null;
+      const exact = vtext.match(/\b(BUY|SELL|HOLD)\b/i);
+      if (exact) v = exact[0].toUpperCase();
+      else if (/\b(accumulate|overweight|add|long|bullish|increase)\b/i.test(vtext)) v = 'BUY';
+      else if (/\b(underweight|reduce|trim|exit|short|bearish|decrease|liquidate)\b/i.test(vtext)) v = 'SELL';
+      else if (/\b(neutral|wait|maintain|stay|pause)\b/i.test(vtext)) v = 'HOLD';
+      if (v){
+        showVerdictBanner(v, vtext);
       }
       return;
     }
@@ -1076,6 +1102,7 @@ function installLiveWiring(){
   window.fetch = function(){
     const url = (arguments[0]||'').toString();
     if (/\/analyze/.test(url)){
+      window.__lastAnalyzeAt = Date.now();
       startDeliberation();
 
       // Try to extract ticker from the body/payload
@@ -1092,13 +1119,9 @@ function installLiveWiring(){
         }
       } catch(e){}
 
-      // Run VS intro for battle phase
-      setTimeout(function(){
-        runVSIntro(function(){
-          // After intro, set both portraits visible
-          setBattleView(advBattleBull);
-        });
-      }, 600);
+      // NOTE: no VS intro here — the battle framing is event-driven now
+      // (it runs when the first real bull/bear debate event arrives, which
+      // matches the actual pipeline phase; analysts report first).
     }
     return _fetch.apply(this, arguments);
   };
@@ -1219,9 +1242,11 @@ function submitChallengeTicker(ticker){
   }
 
   function tryFillAndSubmit(){
+    // No offsetParent/visibility gate: the ADV overlay hides the React app,
+    // but React still handles synthetic events on hidden nodes.
     const reactInput = document.querySelector('#root .form-input[placeholder="AAPL"]');
     const reactSubmit = document.querySelector('#root .btn-summon');
-    if (reactInput && reactSubmit && reactInput.offsetParent !== null){
+    if (reactInput && reactSubmit){
       setReactInput(reactInput, t);
       reactSubmit.click();
       return true;
@@ -1229,20 +1254,37 @@ function submitChallengeTicker(ticker){
     return false;
   }
 
-  if (tryFillAndSubmit()) return;
-
-  const navButtons = document.querySelectorAll('#root .topbar-nav button');
-  let marketBtn = null;
-  navButtons.forEach(btn => {
-    if (/Market Square/i.test(btn.textContent)) marketBtn = btn;
-  });
-  if (marketBtn){
-    marketBtn.click();
-    let attempts = 0;
-    const poll = setInterval(function(){
-      if (tryFillAndSubmit() || ++attempts > 20) clearInterval(poll);
-    }, 150);
+  // Fallback: POST /analyze ourselves and open the SSE stream. Both go
+  // through the hooked window.fetch / window.EventSource installed by
+  // installLiveWiring(), so the council chrome reacts exactly as if the
+  // React app had started the run.
+  function directAnalyze(){
+    const token = localStorage.getItem('bazaar_token') || '';
+    // Local date, not toISOString() (UTC) — late evening local can be
+    // "tomorrow" in UTC and the backend rejects future dates.
+    const d = new Date();
+    const today = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    window.fetch('/analyze?token=' + encodeURIComponent(token), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ticker: t, date: today })
+    }).then(function(r){ return r.json(); }).then(function(resp){
+      if (!resp || !resp.job_id) throw new Error((resp && (resp.detail || resp.error)) || 'no job_id');
+      const es = new EventSource('/stream/' + resp.job_id + '?token=' + encodeURIComponent(token));
+      es.addEventListener('message', function(ev){
+        try { if (JSON.parse(ev.data).type === 'complete') es.close(); } catch(e){}
+      });
+    }).catch(function(err){
+      console.warn('[challenge] direct analyze failed:', err);
+      const txt = document.getElementById('adv-live-text');
+      if (txt) txt.textContent = 'Could not start analysis — ' + ((err && err.message) || 'error');
+    });
   }
+
+  // The old React-form proxy is unreliable (its selectors target the
+  // original Bazaar UI, and the current quickstart form doesn't POST),
+  // so always start the run directly.
+  directAnalyze();
 }
 
 function buildChallengeInput(){
