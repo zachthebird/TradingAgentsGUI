@@ -30,16 +30,38 @@
   // Seat SEMANTICS mirror the dfaa5fa map — only the skin changed.
   // Painterly castle cast (design/comic-cast/) still serves the ADV view.
   var CAST = {
-    market:       { name: 'Amy',     role: 'Market Analyst',       img: 'amy.png' },     // Chief Analyst
-    social:       { name: 'Natsumi', role: 'Sentiment Analyst',    img: 'natsumi.png' }, // Investor Relations Dir.
-    news:         { name: 'Satomi',  role: 'News Analyst',         img: 'satomi.png' },  // Financial News Anchor
-    fundamentals: { name: 'Misaki',  role: 'Fundamentals Analyst', img: 'misaki.png' },  // Equity Research Lead
-    bull:         { name: 'Reika',   role: 'Bull Researcher',      img: 'reika.png' },   // Hedge Fund Manager
-    bear:         { name: 'Aoi',     role: 'Bear Researcher',      img: 'aoi.png' },     // Risk Analyst
-    trader:       { name: 'Chika',   role: 'Trader',               img: 'chika.png' },   // Quant Trader
-    judge:        { name: 'Sabrina', role: 'Portfolio Manager',    img: 'sabrina.png' }, // Portfolio Manager
+    market:       { name: 'Amy',     role: 'Market Analyst',       img: 'amy.png',     quote: 'The tape never lies. People do.' },
+    social:       { name: 'Natsumi', role: 'Sentiment Analyst',    img: 'natsumi.png', quote: 'Sentiment is a rumor with volume.' },
+    news:         { name: 'Satomi',  role: 'News Analyst',         img: 'satomi.png',  quote: 'Breaking: the headline is already priced in.' },
+    fundamentals: { name: 'Misaki',  role: 'Fundamentals Analyst', img: 'misaki.png',  quote: 'Show me the filings, not the story.' },
+    bull:         { name: 'Reika',   role: 'Bull Researcher',      img: 'reika.png',   quote: 'Underweighting conviction is career risk.' },
+    bear:         { name: 'Aoi',     role: 'Bear Researcher',      img: 'aoi.png',     quote: 'Someone has to price the downside.' },
+    trader:       { name: 'Chika',   role: 'Trader',               img: 'chika.png',   quote: 'My models saw it four ticks ago.' },
+    judge:        { name: 'Sabrina', role: 'Portfolio Manager',    img: 'sabrina.png', quote: 'Bring me arguments, not opinions. I sign the ruling.' },
   };
   var CAST_DIR = 'design/pc98-cast/';
+
+  // The rest of the firm (pc98-asset-sheet-finance.png roster) — attract
+  // mode + role cameos. Not seat-mapped; purely presentational.
+  var EXTRAS = {
+    yuki:     { name: 'Yuki',       role: 'Venture Capitalist',  img: 'yuki.png',        quote: 'I fund the future before it reports earnings.' },
+    luna:     { name: 'Luna',       role: 'Private Banker',      img: 'luna.png',        quote: 'Discretion compounds faster than interest.' },
+    karen:    { name: 'Karen',      role: 'Compliance Officer',  img: 'karen.png',       quote: 'Every trade clears my desk first.' },
+    goro:     { name: 'Goro',       role: 'Investment Banker',   img: 'goro.png',        quote: 'The deal is done. You just have not signed yet.' },
+    tanaka:   { name: 'Mr. Tanaka', role: 'CFO',                 img: 'tanaka.png',      quote: 'Cash is a fact. Everything else is opinion.' },
+    beatrice: { name: 'Beatrice',   role: 'Tax Strategist',      img: 'beatrice.png',    quote: 'The best return is the one you keep.' },
+    hojo:     { name: 'Hojo',       role: 'Auditor',             img: 'hojo.png',        quote: 'The ledger remembers what everyone forgets.' },
+    ren:      { name: 'Ren',        role: 'M&A Lawyer',          img: 'ren.png',         quote: 'Read clause twelve again. Slowly.' },
+    maria:    { name: 'Maria',      role: 'IR Analyst',          img: 'maria.png',       quote: 'The market hears what you whisper.' },
+    takashi:  { name: 'Takashi',    role: 'Credit Analyst',      img: 'takashi.png',     quote: 'Debt always tells the truth eventually.' },
+    elena:    { name: 'Elena',      role: 'Private Equity Dir.', img: 'elena.png',       quote: 'Undervalued is just unloved, with paperwork.' },
+    shinji:   { name: 'Shinji',     role: 'Junior Analyst',      img: 'shinji.png',      quote: 'Pulling the data now! Two minutes!' },
+    mascot:   { name: 'CALC-98',    role: 'Terminal Mascot',     img: 'mascot-calc.png', quote: 'Please do not unplug me during a run.' },
+  };
+  // Attract-mode rotation order: the eight seats, then the wider firm.
+  var ROSTER = Object.keys(CAST).map(function (k) { return CAST[k]; })
+    .concat(['yuki', 'luna', 'karen', 'goro', 'tanaka', 'beatrice', 'hojo', 'ren', 'maria', 'takashi', 'elena', 'shinji']
+      .map(function (k) { return EXTRAS[k]; }));
 
   // LangGraph node name (lowercased, spaces→_) → seat. Mirrors the
   // dfaa5fa-corrected AGENT_TO_SEAT in castle-council.js.
@@ -94,7 +116,24 @@
   STAGES.forEach(function (st) { S.stages[st.id] = 'pending'; });
 
   var D = {};                // DOM refs
-  var timers = { clock: null, heartbeatOff: null, advance: null };
+  var timers = { clock: null, heartbeatOff: null, advance: null, attract: null, rx: null };
+
+  /* ── attract mode: the firm's roster cycles while the terminal idles ── */
+  var attractIdx = 0;
+  function startAttract() {
+    stopAttract();
+    timers.attract = setInterval(function () {
+      if (S.mode !== 'idle') { stopAttract(); return; }
+      if (S.typing) return; // never clobber an active speaker
+      var who = ROSTER[attractIdx % ROSTER.length];
+      attractIdx++;
+      showCharacter(who, 'idle');
+      setWire('ROSTER ▸ ' + who.name.toUpperCase() + ' — ' + who.role.toUpperCase() + ': “' + who.quote + '”');
+    }, 8000);
+  }
+  function stopAttract() {
+    if (timers.attract) { clearInterval(timers.attract); timers.attract = null; }
+  }
 
   /* ── tiny helpers ─────────────────────────────────────────────── */
   function el(tag, cls, html) {
@@ -291,13 +330,26 @@
     document.addEventListener('keydown', onKey);
   }
 
-  function setPortrait(seat, frame) {
-    var c = CAST[seat] || CAST.judge;
-    var src = CAST_DIR + c.img;
-    if (D.portrait.getAttribute('src') !== src) D.portrait.src = src;
-    D.nameplate.textContent = c.name;
+  function applyPortrait(entry, frame) {
+    var src = CAST_DIR + entry.img;
+    if (D.portrait.getAttribute('src') !== src) {
+      D.portrait.src = src;
+      // CRT re-tune flicker on every face change
+      if (!REDUCED_MOTION) {
+        D.advisor.classList.remove('t98-swap');
+        void D.advisor.offsetWidth; // restart the animation
+        D.advisor.classList.add('t98-swap');
+      }
+    }
+    D.nameplate.textContent = entry.name;
     D.advisor.classList.toggle('t98-speaking', frame === 'speaking');
     D.advisor.classList.toggle('t98-thinking', frame === 'idle' && S.mode === 'running');
+  }
+  function setPortrait(seat, frame) {
+    applyPortrait(CAST[seat] || CAST.judge, frame);
+  }
+  function showCharacter(entry, frame) {
+    applyPortrait(entry, frame || 'idle');
   }
 
   /* ── typewriter (adaptive; whole pages, click/space to finish) ── */
@@ -327,6 +379,8 @@
     var t0 = Date.now();
     var i = 0;
     var cancelled = false;
+    var baseSub = D.dialogSub.textContent;
+    var lastRx = 0;
     var pre = el('div');
     pre.style.whiteSpace = 'pre-wrap';
     var tn = document.createTextNode('');
@@ -343,6 +397,10 @@
         i = target;
         node.scrollTop = node.scrollHeight;
       }
+      if (Date.now() - lastRx > 400) {
+        lastRx = Date.now();
+        D.dialogSub.textContent = baseSub + ' · RX ' + Math.floor((i / total) * 100) + '%';
+      }
       if (i >= total) return finish();
       S.typing.t = setTimeout(step, 16);
     }
@@ -350,6 +408,7 @@
       if (cancelled) return;
       cancelled = true;
       S.typing = null;
+      D.dialogSub.textContent = baseSub;
       node.innerHTML = html;
       node.scrollTop = 0;
       if (done) done();
@@ -397,9 +456,10 @@
     p.unread = false;
     D.dialogTitle.textContent = p.title;
     D.dialogSub.textContent = p.sub || '';
-    if (p.seat) setPortrait(p.seat, 'speaking');
+    var who = p.character || (p.seat ? CAST[p.seat] : null);
+    if (who) applyPortrait(who, 'speaking');
     typeInto(D.dialogBody, p.html, p.raw, function () {
-      if (p.seat) setPortrait(p.seat, S.mode === 'running' ? 'idle' : 'reacting');
+      if (who) applyPortrait(who, 'idle');
       renderDialogButtons(); // drop the stale SKIP button
       maybeAutoAdvance();
     });
@@ -489,6 +549,7 @@
   /* ── run lifecycle ────────────────────────────────────────────── */
   function startRun(ticker, date, analysts, depth) {
     closeWindows();
+    stopAttract();
     clearTimeout(timers.advance); timers.advance = null;
     S.mode = 'running';
     S.ticker = ticker; S.date = date;
@@ -573,9 +634,15 @@
     var act = stageOfActivity();
     if (act) setStage(act, 'error');
     logEvt('error', msg);
+    // Compliance handles auth rejections; the mascot delivers the rest.
+    var authFault = /access denied|token|403/i.test(msg);
     pushPage({
-      kind: 'error', title: 'TRANSMISSION FAULT', sub: S.ticker || '', seat: 'judge',
+      kind: 'error',
+      title: authFault ? 'COMPLIANCE HOLD' : 'TRANSMISSION FAULT',
+      sub: authFault ? 'KAREN · COMPLIANCE OFFICER' : 'CALC-98 REGRETS TO REPORT',
+      character: authFault ? EXTRAS.karen : EXTRAS.mascot,
       html: '<p><strong>' + esc(msg) + '</strong></p><p>The council session could not proceed. Check the LOG window for the event trail, then start a NEW RUN.</p>',
+      raw: msg,
     });
     D.menu.summon.disabled = false;
     D.menu.archive.disabled = false;
@@ -613,6 +680,7 @@
     D.lastData.textContent = '';
     drawChart();
     showIdleForm();
+    startAttract();
   }
 
   /* ── SSE event router ─────────────────────────────────────────── */
@@ -671,6 +739,16 @@
         if (st.id === stg) { reached = true; setStage(st.id, S.stages[st.id] === 'done' ? 'done' : 'active'); }
         else if (!reached && S.stages[st.id] === 'active') setStage(st.id, 'done');
       });
+    }
+    // Tool-call / housekeeping phases: Shinji the Junior Analyst runs
+    // the errands — makes "fetching" visibly distinct from "thinking".
+    var n = normNode(node);
+    if (/^(tools_|msg_clear)/.test(n)) {
+      if (!S.typing) showCharacter(EXTRAS.shinji, 'idle');
+      setNow(/^tools_/.test(n)
+        ? 'NOW: SHINJI PULLS ' + n.replace('tools_', '').toUpperCase() + ' DATA…'
+        : 'NOW: SHINJI CLEARS THE DESK…');
+      return;
     }
     var seat = seatFor(node);
     if (seat && !S.typing) setPortrait(seat, 'idle');
@@ -929,7 +1007,8 @@
       if (!S.pages.length) b.appendChild(el('div', '', 'NO PAGES YET — REPORTS LAND HERE AS THEY ARRIVE.'));
       S.pages.forEach(function (p, i) {
         var it = el('button', 't98-index-item');
-        it.appendChild(el('span', 't98-idx-seat', esc(p.seat && CAST[p.seat] ? CAST[p.seat].name : 'SYS')));
+        var whoName = p.character ? p.character.name : (p.seat && CAST[p.seat] ? CAST[p.seat].name : 'SYS');
+        it.appendChild(el('span', 't98-idx-seat', esc(whoName)));
         it.appendChild(el('span', '', esc(p.title) + ' <span style="opacity:.6">' + esc(p.ts || '') + '</span>'));
         if (p.unread) it.appendChild(el('span', 't98-idx-new', '● NEW'));
         it.addEventListener('click', function () {
@@ -956,6 +1035,10 @@
   function openArchive() {
     var b = openWindow('ARCHIVE — PAST COUNCIL SESSIONS', '');
     b.appendChild(el('div', '', 'FETCHING LEDGER…'));
+    if (!S.typing && S.mode !== 'running') {
+      showCharacter(EXTRAS.hojo, 'idle');
+      setWire('HOJO OPENS THE RECORDS — “' + EXTRAS.hojo.quote + '”');
+    }
     fetch(withToken('/reports')).then(function (r) {
       if (!r.ok) throw new Error(r.status === 403 ? 'ACCESS DENIED (403) — token rejected' : 'HTTP ' + r.status);
       return r.json();
@@ -979,6 +1062,7 @@
   function loadArchived(ticker, date) {
     if (S.mode === 'running') { setWire('RUN IN PROGRESS — ARCHIVE LOCKED UNTIL THE COUNCIL ADJOURNS'); return; }
     closeWindows();
+    stopAttract();
     fetch(withToken('/reports/' + encodeURIComponent(ticker) + '/' + encodeURIComponent(date)))
       .then(function (r) {
         if (!r.ok) throw new Error('HTTP ' + r.status);

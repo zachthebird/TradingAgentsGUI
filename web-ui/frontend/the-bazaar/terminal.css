@@ -199,7 +199,33 @@ body.t98-mode { overflow: hidden; background: var(--t98-bg0); }
   border-color: var(--t98-amber);
   box-shadow: 0 0 26px rgba(255, 184, 77, 0.45), inset 0 0 22px rgba(3, 12, 18, 0.9);
 }
-.t98-advisor.t98-speaking .t98-portrait-bezel img { filter: saturate(1.05) contrast(1.06) brightness(1.06); }
+.t98-advisor.t98-speaking .t98-portrait-bezel img {
+  filter: saturate(1.05) contrast(1.06) brightness(1.06);
+  /* chunky 2-step talk bob — retro "the speaker is animated" tell */
+  animation: t98TalkBob 0.44s steps(2) infinite;
+}
+@keyframes t98TalkBob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+.t98-advisor.t98-speaking .t98-nameplate {
+  color: #2a1404;
+  background: var(--t98-amber);
+  border-color: var(--t98-amber);
+}
+/* CRT re-tune flicker when the portrait changes faces */
+.t98-advisor.t98-swap .t98-portrait-bezel img {
+  animation: t98SwapFlicker 0.28s steps(4) 1;
+}
+.t98-advisor.t98-speaking.t98-swap .t98-portrait-bezel img {
+  animation: t98SwapFlicker 0.28s steps(4) 1, t98TalkBob 0.44s steps(2) 0.28s infinite;
+}
+@keyframes t98SwapFlicker {
+  0% { filter: brightness(2.4) contrast(0.5) saturate(0.2); transform: translateX(-2px) scaleY(0.96); }
+  35% { filter: brightness(0.6) contrast(1.6); transform: translateX(2px); }
+  70% { filter: brightness(1.5) saturate(1.4); transform: translateX(-1px); }
+  100% { filter: none; transform: none; }
+}
 .t98-nameplate {
   font-family: var(--t98-font-crt);
   font-size: 20px;
@@ -613,6 +639,9 @@ body.t98-mode { overflow: hidden; background: var(--t98-bg0); }
   .t98-stage-seg.t98-active .t98-seg-lamp,
   .t98-cursor { animation: none; }
   .t98-seal { animation: none; }
+  .t98-advisor.t98-speaking .t98-portrait-bezel img,
+  .t98-advisor.t98-swap .t98-portrait-bezel img,
+  .t98-advisor.t98-speaking.t98-swap .t98-portrait-bezel img { animation: none; }
 }
 
 /* ── narrow screens ───────────────────────────────────────────── */
