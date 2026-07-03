@@ -565,25 +565,30 @@
     fetchServerDefaults(function (d) {
       if (!d) return;
       if (d.tier === 'guest') {
-        var advBtn = document.getElementById('t98-f-advtoggle');
-        if (advBtn && advBtn.parentNode) advBtn.parentNode.style.display = 'none';
+        // Public tier: the model, provider, key, and depth are fixed
+        // server-side. Remove the controls entirely so nobody can even
+        // attempt to change them. Runs are hardcoded to the free model
+        // at standard depth (1 debate round) for speed.
+        S.guest = true;
+        var advRow = document.getElementById('t98-f-advtoggle');
+        if (advRow) { var r = advRow.closest('.t98-form-row'); if (r) r.remove(); }
         var advPanel = document.getElementById('t98-f-adv');
-        if (advPanel) advPanel.style.display = 'none';
+        if (advPanel) advPanel.remove();
         var depth = document.getElementById('t98-f-depth');
         if (depth) {
-          Array.prototype.slice.call(depth.options).forEach(function (o) {
-            if (o.value !== 'standard' && o.value !== 'quick') o.remove();
-          });
+          depth.value = 'standard';           // hardcode 1-debate standard
+          var dr = depth.closest('.t98-form-row');
+          if (dr) dr.remove();                 // remove the depth dropdown row
         }
         var errEl = document.getElementById('t98-f-err');
         if (errEl && d.limits) {
-          errEl.textContent = 'GUEST DESK · ' + d.limits.daily_remaining + '/' + d.limits.daily_cap +
-            ' RUNS LEFT TODAY · DEPTH CAPPED AT STANDARD';
+          errEl.textContent = 'FREE PUBLIC DESK · ' + d.limits.daily_remaining + '/' + d.limits.daily_cap +
+            ' RUNS LEFT TODAY';
           errEl.style.color = 'var(--t98-ink-soft)';
         }
         if (!S.guestChip) {
           S.guestChip = true;
-          D.title.innerHTML += ' <b>//</b> GUEST DESK';
+          D.title.innerHTML += ' <b>//</b> PUBLIC DESK';
         }
         return;
       }
@@ -605,7 +610,9 @@
     var tin = document.getElementById('t98-f-ticker');
     var ticker = (tin.value || '').trim().toUpperCase();
     var date = document.getElementById('t98-f-date').value || localToday();
-    var depth = document.getElementById('t98-f-depth').value;
+    // Depth control is removed for the public/guest tier — hardcode standard.
+    var depthEl = document.getElementById('t98-f-depth');
+    var depth = depthEl ? depthEl.value : 'standard';
     var analysts = Array.prototype.slice.call(document.querySelectorAll('#t98-root [data-analyst]'))
       .filter(function (c) { return c.checked; })
       .map(function (c) { return c.getAttribute('data-analyst'); });

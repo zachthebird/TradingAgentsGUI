@@ -304,12 +304,19 @@ MODEL_PRICING: Dict[str, tuple] = {
     "deepseek-reasoner": (0.003625, 0.435, 0.87),
     "gpt-5.4":           (0.075,    0.75,  6.0),
     "gpt-5.4-mini":      (0.0125,   0.125, 1.0),
+    # Free OpenRouter models (":free" slugs) cost $0 — price them at zero so
+    # the guest desk's cost readout shows $0.00, not the fallback estimate.
+    "nemotron":          (0.0,      0.0,   0.0),
+    "nvidia/":           (0.0,      0.0,   0.0),
 }
 _FALLBACK_PRICE = (0.005, 0.60, 1.20)
 
 
 def _price_for(model: str) -> tuple:
     m = (model or "").lower()
+    # Any explicitly-free OpenRouter model is $0 regardless of family.
+    if m.endswith(":free"):
+        return (0.0, 0.0, 0.0)
     for key, price in MODEL_PRICING.items():
         if key in m:
             return price

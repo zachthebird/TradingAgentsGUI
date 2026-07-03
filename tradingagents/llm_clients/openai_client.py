@@ -211,7 +211,10 @@ class OpenAIClient(BaseLLMClient):
                 api_key = os.environ.get(api_key_env)
                 if api_key:
                     llm_kwargs["api_key"] = api_key
-                else:
+                elif "api_key" not in self.kwargs:
+                    # No env key AND no explicit per-run key → genuinely missing.
+                    # (A passed api_key in self.kwargs stands alone — it's applied
+                    # by the passthrough loop below, so don't raise here.)
                     raise ValueError(
                         f"API key for provider '{self.provider}' is not set. "
                         f"Please set the {api_key_env} environment variable "
