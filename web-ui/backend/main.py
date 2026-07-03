@@ -94,6 +94,10 @@ GUEST_QUICK_LLM = os.getenv("TRADINGAGENTS_GUEST_QUICK_LLM", "")
 # never touches the env key the local/admin tier uses.  Falls back to the
 # provider's normal env key when unset.
 GUEST_API_KEY = os.getenv("TRADINGAGENTS_GUEST_API_KEY", "")
+# When enabled, unauthenticated public traffic runs as GUEST (no passcode).
+# Only honored if a guest provider is configured (else open traffic would
+# hit the paid default). The guest tier stays hard-clamped regardless.
+GUEST_OPEN = os.getenv("TRADINGAGENTS_GUEST_OPEN", "").strip().lower() in ("1", "true", "yes", "on")
 
 # Guest accounting (in-memory; resets on service restart, which is fine
 # for a personal desk — the cap is a spend brake, not billing).
@@ -148,6 +152,15 @@ class BearerAuthMiddleware(BaseHTTPMiddleware):
             request.state.tier = "admin"
             return await call_next(request)
         if GUEST_TOKEN and presented == GUEST_TOKEN:
+            request.state.tier = "guest"
+            return await call_next(request)
+
+        # Open public desk: when GUEST_OPEN is enabled, an unrecognized/absent
+        # token drops to the GUEST tier instead of 403 — no passcode needed.
+        # Safe because the guest tier is hard-clamped in /analyze (free model,
+        # dedicated key, caps). Requires a guest provider to be configured, or
+        # this would route open traffic to the paid default.
+        if GUEST_OPEN and GUEST_PROVIDER:
             request.state.tier = "guest"
             return await call_next(request)
 

@@ -4,6 +4,23 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TradingAgentsGUI — AI Trading Council</title>
+<script>
+/* Open public desk: when reached over the public tunnel (not localhost),
+   seed a guest sentinel so the passphrase gate never appears — visitors go
+   straight to the free-model guest tier (the backend clamps it). Runs BEFORE
+   React so the gate initializes hidden. Localhost is untouched: the desktop
+   app pre-seeds the real admin token, and a local browser still gets the
+   gate to enter an admin token. */
+(function () {
+  try {
+    var h = location.hostname;
+    var isLocal = h === 'localhost' || h === '127.0.0.1' || h === '' || h === '::1';
+    if (!isLocal && !localStorage.getItem('tradingagents_token')) {
+      localStorage.setItem('tradingagents_token', 'public');
+    }
+  } catch (e) {}
+})();
+</script>
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -1874,7 +1891,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
      ?v= cache-buster: bump when assets change (stale-tab caching bit us twice) -->
 <script>
 (function () {
-  var V = '20260705a';
+  var V = '20260705b';
   // One-time migration from the legacy "bazaar_*" localStorage keys so
   // stored tokens / UI preferences survive the rename.
   try {
