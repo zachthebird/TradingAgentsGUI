@@ -138,6 +138,13 @@ class TradingAgentsGraph:
         kwargs = {}
         provider = self.config.get("llm_provider", "").lower()
 
+        # Optional per-run API-key override (e.g. a dedicated key for a
+        # public/guest tier). Forwarded to the client and applied over the
+        # env key in get_llm's passthrough, so it never mutates global env.
+        run_key = self.config.get("llm_api_key")
+        if run_key:
+            kwargs["api_key"] = run_key
+
         if provider == "google":
             thinking_level = self.config.get("google_thinking_level")
             if thinking_level:

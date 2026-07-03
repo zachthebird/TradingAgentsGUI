@@ -89,6 +89,11 @@ GUEST_COOLDOWN_SECONDS = int(os.getenv("TRADINGAGENTS_GUEST_COOLDOWN", "90"))
 GUEST_PROVIDER = os.getenv("TRADINGAGENTS_GUEST_PROVIDER", "")
 GUEST_DEEP_LLM = os.getenv("TRADINGAGENTS_GUEST_DEEP_LLM", "")
 GUEST_QUICK_LLM = os.getenv("TRADINGAGENTS_GUEST_QUICK_LLM", "")
+# Dedicated API key for guest runs ONLY (e.g. a separate, spend-capped
+# OpenRouter key for the public tier).  Injected per-run via config so it
+# never touches the env key the local/admin tier uses.  Falls back to the
+# provider's normal env key when unset.
+GUEST_API_KEY = os.getenv("TRADINGAGENTS_GUEST_API_KEY", "")
 
 # Guest accounting (in-memory; resets on service restart, which is fine
 # for a personal desk — the cap is a spend brake, not billing).
@@ -494,6 +499,10 @@ def _run_analysis(job: Job, request: AnalyzeRequest) -> None:
         )
 
         config = _build_config(request)
+        # Guest/public runs use their own dedicated API key (scoped to this
+        # run's LLM clients — never the env key the local/admin tier uses).
+        if getattr(job, "tier", "admin") == "guest" and GUEST_API_KEY:
+            config["llm_api_key"] = GUEST_API_KEY
         job.put_event("status", {"message": "Building graph...", "status": "building"})
 
         meter = TokenMeter()
@@ -844,7 +853,10 @@ async def analyze(req: AnalyzeRequest, request: Request):
     # ── pre-flight: API key for the provider this request selects ─────
     provider = (req.llm_provider or DEFAULT_CONFIG.get("llm_provider", "")).lower()
     key_var = PROVIDER_KEY_ENV.get(provider)
-    if key_var and not os.environ.get(key_var):
+    # Guest runs may carry their own dedicated key (GUEST_API_KEY); that
+    # satisfies the preflight even when the provider's env key is unset.
+    guest_key_ok = tier == "guest" and bool(GUEST_API_KEY)
+    if key_var and not os.environ.get(key_var) and not guest_key_ok:
         raise HTTPException(
             503,
             f"Backend not ready for provider '{provider}': missing environment "
