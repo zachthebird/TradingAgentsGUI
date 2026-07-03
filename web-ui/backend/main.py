@@ -134,7 +134,14 @@ class BearerAuthMiddleware(BaseHTTPMiddleware):
         # else is assumed to be a static asset.
         _api_prefixes = ("/analyze", "/stream", "/reports", "/auth", "/config")
         if not any(path.startswith(p) for p in _api_prefixes):
-            return await call_next(request)
+            resp = await call_next(request)
+            # Force revalidation on the app shell/assets so a frontend update
+            # (e.g. the public-desk lockdown) always reaches visitors instead
+            # of a stale cached copy. no-cache = "revalidate before use" (304
+            # when unchanged), so it's cheap but never serves stale HTML/JS.
+            if path.endswith((".html", ".js", ".css")) or path.endswith("/") or "." not in path.rsplit("/", 1)[-1]:
+                resp.headers["Cache-Control"] = "no-cache, must-revalidate"
+            return resp
 
         # Token not configured — allow all (local dev / LAN mode).
         if not API_TOKEN:
