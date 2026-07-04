@@ -199,11 +199,15 @@ class BearerAuthMiddleware(BaseHTTPMiddleware):
             if auth.startswith("Bearer "):
                 presented = auth[len("Bearer "):]
         # Constant-time comparison so the token can't be recovered byte-by-byte
-        # via response-timing over the public tunnel.
-        if presented and hmac.compare_digest(presented, API_TOKEN):
+        # via response-timing over the public tunnel. Compare on UTF-8 bytes:
+        # hmac.compare_digest raises TypeError on non-ASCII str, and the
+        # presented token is fully attacker-controlled (a crafted Unicode token
+        # would otherwise 500 the request instead of cleanly falling through).
+        presented_b = presented.encode("utf-8")
+        if presented and hmac.compare_digest(presented_b, API_TOKEN.encode("utf-8")):
             request.state.tier = "admin"
             return await call_next(request)
-        if GUEST_TOKEN and presented and hmac.compare_digest(presented, GUEST_TOKEN):
+        if GUEST_TOKEN and presented and hmac.compare_digest(presented_b, GUEST_TOKEN.encode("utf-8")):
             request.state.tier = "guest"
             return await call_next(request)
 
