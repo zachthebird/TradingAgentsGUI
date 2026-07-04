@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Traders of the Round Table — Battle Demo</title>
+<meta name="description" content="Eight AI trading agents debate a stock, Pokemon-battle style. A canned replay of the TradingAgents multi-agent debate UI.">
+<meta property="og:title" content="Traders of the Round Table">
+<meta property="og:description" content="Bull vs Bear: AI trading agents battle to a verdict.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://zachbird.com/tradingAgentsGUI/">
+<meta property="og:image" content="https://zachbird.com/tradingAgentsGUI/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Traders of the Round Table">
+<meta name="twitter:description" content="Bull vs Bear: AI trading agents debate your trade — live.">
+<meta name="twitter:image" content="https://zachbird.com/tradingAgentsGUI/og.png">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9A%94%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="castle.css">
+<link rel="stylesheet" href="demo-overrides.css">
+<link rel="stylesheet" href="fx.css">
+</head>
+<body>
+
+<!-- Hidden stand-in for the live app's React root. The council script
+     scrapes #root .detail-section to fill the Chronicles carousel, and
+     the "Challenge another stock" card targets .form-input/.btn-summon
+     here (wired to a replay by demo-driver.js). Kept off-screen, not
+     display:none, so offsetParent checks still pass. -->
+<div id="root" aria-hidden="true" style="position:absolute;left:-9999px;top:0;width:900px;overflow:hidden;">
+  <input class="form-input" placeholder="AAPL" tabindex="-1">
+  <button class="btn-summon" type="button" tabindex="-1">Summon the Council</button>
+
+  <div class="detail-section">
+    <h4>Flint — Market Analyst</h4>
+    <div class="detail-content">
+      <p>The tape shows the challenger marching above its 50-day banner, yet the climb grows tired. RSI wanes near 68, MACD momentum flattens, and volume thins on each new high — the crowd cheers, but fewer coins change hands.</p>
+      <p>Support stands at the $135 rampart, with the deeper moat at $128. A pullback into that range would be orderly, not ominous. Above $152 the trend reasserts itself. Trend intact; enthusiasm stretched.</p>
+    </div>
+  </div>
+
+  <div class="detail-section">
+    <h4>Vera — Sentiment Seer</h4>
+    <div class="detail-content">
+      <p>The town square hums: mentions doubled this fortnight and the mood runs hot. Seventy-two of one hundred voices lean bullish — euphoric by historical measure, though short of the froth seen at prior peaks.</p>
+      <p>Option scribes report heavy call-buying among the small folk. When the crowd leans this far one way, the wise keep a hand on the rail. Sentiment is a tailwind today and a trapdoor tomorrow.</p>
+    </div>
+  </div>
+
+  <div class="detail-section">
+    <h4>Reed — News Herald</h4>
+    <div class="detail-content">
+      <p>Record data-center contracts were signed this week, and three great houses raised their price targets. The order book for next-generation engines is pledged well into next harvest.</p>
+      <p>One cloud on the horizon: export winds blow colder from the East, and new decrees may trim a tenth of the addressable realm. Net of storms, the catalysts ahead skew decidedly to the upside.</p>
+    </div>
+  </div>
+
+  <div class="detail-section">
+    <h4>Sage — Fundamentals Scholar</h4>
+    <div class="detail-content">
+      <p>The ledgers gleam. Revenue swells 62% year over year, gross margins hold near 75%, and free cash flow fills a war chest measured in tens of billions. Few houses in any age have compounded so.</p>
+      <p>The multiple is princely — roughly 40 times forward earnings — but growth of this caliber has historically carried richer valuations still. Quality is not in question; only the price of admission.</p>
+    </div>
+  </div>
+
+  <div class="detail-section">
+    <h4>Balthazar — The Bull Case</h4>
+    <div class="detail-content">
+      <p>Every kingdom races to raise AI citadels, and demand for these engines outpaces supply as far as the eye can see. The hyperscaler lords have pledged their gold for two more years out.</p>
+      <p>Every dip this year was bought by noon. Buy the fear, harvest the growth — the long road still climbs higher.</p>
+    </div>
+  </div>
+
+  <div class="detail-section">
+    <h4>Morwen — The Bear Case</h4>
+    <div class="detail-content">
+      <p>A stock priced beyond perfection forgives nothing. One soft guidance scroll and the downside yawns wide — corrections sleep lightly at these heights.</p>
+      <p>Concentration among a handful of buyers, export decrees from cold courts, rival forges lighting their fires: the risks are real even where the story is true. Respect the drawbridge.</p>
+    </div>
+  </div>
+
+  <div class="detail-section">
+    <h4>Kael — The Trader's Campaign</h4>
+    <div class="detail-content">
+      <p>The council leans bull, so the campaign is thus: enter half a position at market, add on any retreat to $135, and keep the stop below the $128 moat.</p>
+      <p>First profits come off at $160. We buy strength — never without a shield.</p>
+    </div>
+  </div>
+
+  <div class="detail-section">
+    <h4>Elder Aldric — Final Ruling</h4>
+    <div class="detail-content">
+      <p>The council has heard the testimony. The forge burns hot, the ledgers are sound, and fear is the only discount on offer. The bull case carries the day, with the shield of Kael raised.</p>
+      <p>The ruling of this council: BUY — enter half now, add at $135, stop $128, first target $160. The ruling is final. So it is recorded in the chronicle.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Order matters: the driver installs its network shims first, then the
+     council's live wiring wraps them at mount. -->
+<script src="demo-driver.js"></script>
+<script src="castle-council.js"></script>
+<script src="castle-audio.js"></script>
+<script src="castle-share.js"></script>
+<script type="module" src="castle-fx.js"></script>
+<!-- UI toggle: the same council, PC-98 terminal skin (recorded real session) -->
+<a href="./terminal/" style="position:fixed;bottom:10px;right:10px;z-index:9000;background:#0a2836;color:#8ff5ef;border:1px solid #43d9d9;font-family:monospace;font-size:11px;letter-spacing:1px;padding:5px 10px;text-decoration:none;opacity:.78"
+   onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.78">▶ PC-98 TERMINAL</a>
+<!-- Upstream attribution -->
+<div style="position:fixed;bottom:12px;left:12px;z-index:9000;color:#88a06a;font-family:monospace;font-size:10px;letter-spacing:.5px;opacity:.65;pointer-events:none">Built on TradingAgents · © Tauric Research · Apache-2.0</div>
+</body>
+</html>
