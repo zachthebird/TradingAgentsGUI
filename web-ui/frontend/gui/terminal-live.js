@@ -590,6 +590,9 @@
           S.guestChip = true;
           D.title.innerHTML += ' <b>//</b> PUBLIC DESK';
         }
+        // The archive lists the owner's private past runs (admin-only on the
+        // server now); hide the control entirely on the public desk.
+        if (D.menu && D.menu.archive) { D.menu.archive.style.display = 'none'; }
         return;
       }
       var map = { 't98-f-deepllm': d.deep_think_llm, 't98-f-quickllm': d.quick_think_llm, 't98-f-lang': d.output_language };

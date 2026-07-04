@@ -13,6 +13,7 @@ Endpoints:
 """
 
 import asyncio
+import hmac
 import json
 import logging
 import os
@@ -99,12 +100,37 @@ GUEST_API_KEY = os.getenv("TRADINGAGENTS_GUEST_API_KEY", "")
 # hit the paid default). The guest tier stays hard-clamped regardless.
 GUEST_OPEN = os.getenv("TRADINGAGENTS_GUEST_OPEN", "").strip().lower() in ("1", "true", "yes", "on")
 
+# Per-IP guest sub-limit so one visitor can't consume the whole global
+# daily cap and starve everyone else (the global cap remains the ceiling).
+GUEST_PER_IP_DAILY_CAP = int(os.getenv("TRADINGAGENTS_GUEST_PER_IP_CAP", "3"))
+
+# Max request body size (bytes). JSON bodies for this API are tiny; this is
+# a host-protection brake against oversized-payload memory exhaustion.
+_MAX_BODY_BYTES = int(os.getenv("TRADINGAGENTS_MAX_BODY_BYTES", str(64 * 1024)))
+
 # Guest accounting (in-memory; resets on service restart, which is fine
 # for a personal desk — the cap is a spend brake, not billing).
 _guest_lock = threading.Lock()
 _guest_day: str = ""
 _guest_runs_today: int = 0
 _guest_last_submit: float = 0.0
+# Per-IP counters (reset with the day). Identity is CF-Connecting-IP (set by
+# Cloudflare at the edge); X-Forwarded-For is a fallback only and spoofable,
+# so binding to 127.0.0.1 keeps direct off-tunnel access — and forged
+# CF-Connecting-IP — out of reach.
+_guest_ip_runs: Dict[str, int] = {}
+_guest_ip_last: Dict[str, float] = {}
+
+
+def _client_ip(request: "Request") -> str:
+    """Best-effort client identity for per-visitor rate limiting."""
+    cf = request.headers.get("cf-connecting-ip")
+    if cf:
+        return cf.strip()
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
 
 class TokenVerificationResponse(BaseModel):
     valid: bool
@@ -125,6 +151,17 @@ class BearerAuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         path = request.url.path
 
+        # Reject oversized request bodies early (before any parsing/accounting)
+        # so a huge POST can't buffer into memory and OOM the host. JSON bodies
+        # for this API are tiny; 64 KiB is very generous.
+        clen = request.headers.get("content-length")
+        if clen:
+            try:
+                if int(clen) > _MAX_BODY_BYTES:
+                    return JSONResponse(status_code=413, content={"detail": "Request body too large."})
+            except ValueError:
+                return JSONResponse(status_code=400, content={"detail": "Invalid Content-Length."})
+
         # Always allow health checks.
         if path == "/health":
             return await call_next(request)
@@ -134,6 +171,12 @@ class BearerAuthMiddleware(BaseHTTPMiddleware):
         # else is assumed to be a static asset.
         _api_prefixes = ("/analyze", "/stream", "/reports", "/auth", "/config")
         if not any(path.startswith(p) for p in _api_prefixes):
+            # Don't serve source or metadata files out of the static tree:
+            # dotfiles (.DS_Store, .git*) and design source (.py/.md). The
+            # UI's runtime art under design/ (.png/.jpg) is unaffected.
+            _last = path.rsplit("/", 1)[-1].lower()
+            if _last.startswith(".") or _last.endswith((".py", ".pyc", ".md")):
+                return JSONResponse(status_code=404, content={"detail": "Not found"})
             resp = await call_next(request)
             # Force revalidation on the app shell/assets so a frontend update
             # (e.g. the public-desk lockdown) always reaches visitors instead
@@ -155,10 +198,12 @@ class BearerAuthMiddleware(BaseHTTPMiddleware):
             auth = request.headers.get("Authorization", "")
             if auth.startswith("Bearer "):
                 presented = auth[len("Bearer "):]
-        if presented == API_TOKEN:
+        # Constant-time comparison so the token can't be recovered byte-by-byte
+        # via response-timing over the public tunnel.
+        if presented and hmac.compare_digest(presented, API_TOKEN):
             request.state.tier = "admin"
             return await call_next(request)
-        if GUEST_TOKEN and presented == GUEST_TOKEN:
+        if GUEST_TOKEN and presented and hmac.compare_digest(presented, GUEST_TOKEN):
             request.state.tier = "guest"
             return await call_next(request)
 
@@ -227,6 +272,8 @@ class AnalyzeRequest(BaseModel):
     @classmethod
     def validate_analysts(cls, v: List[str]) -> List[str]:
         allowed = {"market", "social", "news", "fundamentals"}
+        if len(v) > len(allowed):
+            raise ValueError("Too many analysts selected")
         invalid = set(v) - allowed
         if invalid:
             raise ValueError(f"Invalid analysts: {invalid}. Allowed: {allowed}")
@@ -624,7 +671,13 @@ def _run_analysis(job: Job, request: AnalyzeRequest) -> None:
         logging.getLogger("uvicorn.error").error("Analysis job %s crashed:\n%s", job.job_id, tb)
         job.status = "error"
         job.error = tb
-        job.put_event("error", {"message": f"Analysis failed: {tb[-300:]}"})
+        # Never ship the traceback to the public tier — it leaks file paths,
+        # library versions, and internal structure. Admin (local) keeps the
+        # tail for debugging; the full trace is always in the server log above.
+        if getattr(job, "tier", "admin") == "admin":
+            job.put_event("error", {"message": f"Analysis failed: {tb[-300:]}"})
+        else:
+            job.put_event("error", {"message": "Analysis failed — the desk hit an error. Please try again."})
     finally:
         timer.cancel()
 
@@ -764,11 +817,40 @@ app = FastAPI(
     title="TradingAgents API",
     description="REST + SSE wrapper around the TradingAgents multi-agent pipeline.",
     version="0.1.0",
+    # Interactive docs / schema are a recon gift on a public deployment —
+    # they'd advertise every route + parameter. Disabled in the public build.
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
 )
+
+
+# Frame-ancestors allow-list: the desk is embedded from the personal site,
+# so arbitrary third-party framing (clickjacking) is blocked while the
+# intended embed still works. Resource-restricting CSP directives are left
+# off for now because the current build loads React/Babel from a CDN and
+# uses inline bootstrap scripts; tightening those requires self-hosting first.
+_FRAME_ANCESTORS = (
+    "frame-ancestors 'self' https://zachbird.com https://www.zachbird.com "
+    "https://zacharybird.com https://www.zacharybird.com"
+)
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Attach baseline security headers to every response."""
+
+    async def dispatch(self, request, call_next):
+        resp = await call_next(request)
+        resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+        resp.headers.setdefault("Referrer-Policy", "no-referrer")
+        resp.headers.setdefault("Content-Security-Policy", _FRAME_ANCESTORS)
+        return resp
+
 
 # Auth middleware goes first (innermost) so that CORS headers are
 # added to 403 responses the auth gate may produce.
 app.add_middleware(BearerAuthMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -825,7 +907,8 @@ async def config_defaults(request: Request):
     Non-secret values only — model names and provider, never keys.
     Guests get their tier + limits instead of server internals.
     """
-    tier = getattr(request.state, "tier", "admin")
+    # Fail closed: an unset tier defaults to the least-privileged guest, never admin.
+    tier = getattr(request.state, "tier", "guest")
     if tier == "guest":
         with _guest_lock:
             remaining = max(0, GUEST_DAILY_CAP - _guest_runs_today) \
@@ -862,8 +945,14 @@ async def analyze(req: AnalyzeRequest, request: Request):
     required credentials are present before the job starts.  Guest-tier
     requests are hard-clamped server-side regardless of the body.
     """
-    tier = getattr(request.state, "tier", "admin")
+    # Fail closed: an unset tier defaults to the least-privileged guest, never admin.
+    tier = getattr(request.state, "tier", "guest")
     if tier == "guest":
+        # Fail CLOSED: if the guest desk isn't fully configured with its own
+        # dedicated provider AND key, refuse rather than silently falling back
+        # to the owner's paid default provider/env key.
+        if not (GUEST_PROVIDER and GUEST_API_KEY):
+            raise HTTPException(503, "The guest desk is temporarily unavailable.")
         # Clamp the request FIRST: guests never choose models, providers,
         # endpoints, output language, or expensive depths — no matter what
         # they sent. output_language is free-form and flows into every
@@ -894,20 +983,34 @@ async def analyze(req: AnalyzeRequest, request: Request):
     if tier == "guest":
         global _guest_day, _guest_runs_today, _guest_last_submit
         import time as _time
+        client_ip = _client_ip(request)
         with _guest_lock:
             today = date_type.today().isoformat()
             if _guest_day != today:
                 _guest_day = today
                 _guest_runs_today = 0
+                _guest_ip_runs.clear()
+                _guest_ip_last.clear()
+            # Global ceiling (overall spend brake).
             if _guest_runs_today >= GUEST_DAILY_CAP:
                 raise HTTPException(429, "The guest desk has hit today's run limit. Come back tomorrow.")
-            wait = GUEST_COOLDOWN_SECONDS - (_time.time() - _guest_last_submit)
+            # Per-visitor sub-limit so one actor can't drain the whole cap and
+            # starve everyone else.
+            if _guest_ip_runs.get(client_ip, 0) >= GUEST_PER_IP_DAILY_CAP:
+                raise HTTPException(429, "You've reached today's run limit for this desk. Come back tomorrow.")
+            now = _time.time()
+            wait = max(
+                GUEST_COOLDOWN_SECONDS - (now - _guest_last_submit),
+                GUEST_COOLDOWN_SECONDS - (now - _guest_ip_last.get(client_ip, 0.0)),
+            )
             if wait > 0:
                 raise HTTPException(429, f"The guest desk is cooling down — try again in {int(wait) + 1}s.")
             if any(j.status == "running" and getattr(j, "tier", "admin") == "guest" for j in _jobs.values()):
                 raise HTTPException(429, "Another guest run is already in session. One council at a time.")
             _guest_runs_today += 1
-            _guest_last_submit = _time.time()
+            _guest_last_submit = now
+            _guest_ip_runs[client_ip] = _guest_ip_runs.get(client_ip, 0) + 1
+            _guest_ip_last[client_ip] = now
         # uvicorn's log config swallows app loggers — use its namespace so
         # the guest audit trail lands in the service log.
         logging.getLogger("uvicorn.error").info(
@@ -915,10 +1018,18 @@ async def analyze(req: AnalyzeRequest, request: Request):
             req.ticker, req.research_depth, _guest_runs_today, GUEST_DAILY_CAP,
         )
 
-    job_id = str(uuid.uuid4())[:8]
+    # Full 128-bit id: a truncated id is guessable/collidable, and any holder
+    # of a job id can read its SSE stream — so it must be unpredictable.
+    job_id = uuid.uuid4().hex
     job = Job(job_id, req.ticker, req.date)
     job.tier = tier
     _jobs[job_id] = job
+    # Bound memory: keep every running job plus the 20 most-recent finished
+    # ones; drop older finished jobs (insertion order = recency).
+    if len(_jobs) > 40:
+        _finished = [jid for jid, j in list(_jobs.items()) if j.status in ("done", "error")]
+        for jid in _finished[:-20]:
+            _jobs.pop(jid, None)
 
     thread = threading.Thread(
         target=_run_analysis, args=(job, req), daemon=True
@@ -953,7 +1064,12 @@ async def stream(job_id: str):
                 if job.status == "done" and job.result:
                     yield f"data: {json.dumps({'type': 'complete', 'data': {'message': 'Analysis complete', 'result': job.result}})}\n\n"
                 elif job.status == "error":
-                    yield f"data: {json.dumps({'type': 'error', 'data': {'message': job.error or 'unknown'}})}\n\n"
+                    _emsg = (
+                        (job.error or "unknown")[-300:]
+                        if getattr(job, "tier", "admin") == "admin"
+                        else "Analysis failed — please try again."
+                    )
+                    yield f"data: {json.dumps({'type': 'error', 'data': {'message': _emsg}})}\n\n"
                 return
             # Still running but no events yet — heartbeat so the
             # connection doesn't look dead.
@@ -971,8 +1087,14 @@ async def stream(job_id: str):
 
 
 @app.get("/reports", response_model=ReportList)
-async def list_reports():
-    """List all past analysis reports from the results directory."""
+async def list_reports(request: Request):
+    """List all past analysis reports from the results directory (admin only).
+
+    The archive is the owner's private analysis history — never exposed to the
+    public/guest tier. Guests see only their own live run via the SSE stream.
+    """
+    if getattr(request.state, "tier", "guest") != "admin":
+        raise HTTPException(403, "Reports are private.")
     reports: List[ReportSummary] = []
     if not RESULTS_DIR.exists():
         return ReportList(reports=reports)
@@ -1077,8 +1199,12 @@ def get_price_history(
 
 
 @app.get("/reports/{ticker}/{date}")
-async def get_report(ticker: str, date: str):
-    """Return the full analysis JSON for a ticker + date."""
+async def get_report(ticker: str, date: str, request: Request):
+    """Return the full analysis JSON for a ticker + date (admin only)."""
+    if getattr(request.state, "tier", "guest") != "admin":
+        raise HTTPException(403, "Reports are private.")
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
+        raise HTTPException(400, "Invalid date (want YYYY-MM-DD).")
     safe = _safe_ticker_dir(ticker)
     path = RESULTS_DIR / safe / "TradingAgentsStrategy_logs" / f"full_states_log_{date}.json"
     if not path.exists():
@@ -1088,8 +1214,12 @@ async def get_report(ticker: str, date: str):
 
 
 @app.get("/reports/{ticker}/{date}/markdown")
-async def get_report_markdown(ticker: str, date: str):
-    """Render the analysis report as markdown."""
+async def get_report_markdown(ticker: str, date: str, request: Request):
+    """Render the analysis report as markdown (admin only)."""
+    if getattr(request.state, "tier", "guest") != "admin":
+        raise HTTPException(403, "Reports are private.")
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
+        raise HTTPException(400, "Invalid date (want YYYY-MM-DD).")
     safe = _safe_ticker_dir(ticker)
     path = RESULTS_DIR / safe / "TradingAgentsStrategy_logs" / f"full_states_log_{date}.json"
     if not path.exists():
@@ -1166,9 +1296,12 @@ if _FRONTEND_DIR.exists():
 
 if __name__ == "__main__":
     import uvicorn
+    # Bind loopback by default so the desk is reachable only through the
+    # cloudflared tunnel (which connects to localhost), not the LAN. Override
+    # with HOST=0.0.0.0 only if you deliberately want LAN exposure.
     uvicorn.run(
         app,
-        host="0.0.0.0",
+        host=os.getenv("HOST", "127.0.0.1"),
         port=8000,
         reload=False,
         log_level="info",
