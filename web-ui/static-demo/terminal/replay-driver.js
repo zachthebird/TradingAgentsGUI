@@ -8,7 +8,8 @@
    the terminal's own summon form, so every state transition is the
    authentic live path.
 
-   Menu rewires: SUMMON → REPLAY (restarts), ADV UI → GB DEMO (../).
+   Menu rewires: SUMMON → REPLAY (restarts); ADV UI hidden — the old Game
+   Boy edition is retired from the public demo.
    ═══════════════════════════════════════════════════════════════════ */
 (function () {
   'use strict';

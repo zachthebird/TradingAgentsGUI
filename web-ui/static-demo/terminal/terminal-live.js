@@ -117,7 +117,7 @@
   STAGES.forEach(function (st) { S.stages[st.id] = 'pending'; });
 
   var D = {};                // DOM refs
-  var timers = { clock: null, heartbeatOff: null, advance: null, attract: null, rx: null, intro: null };
+  var timers = { clock: null, heartbeatOff: null, advance: null, attract: null, rx: null, intro: null, brief: null };
 
   /* ── attract mode: the firm's roster cycles while the terminal idles ── */
   var attractIdx = 0;
@@ -1461,7 +1461,7 @@
           '<div class="t98-brief-p t98-brief-keys">' +
             'SPACE / ENTER .... SKIP TYPING &middot; NEXT PAGE<br>' +
             '&#9664; &#9654; ................. FLIP PAGES &nbsp;&nbsp; ESC .... CLOSE WINDOWS<br>' +
-            'MENU: REPLAY RESTARTS &middot; GB DEMO = GAME BOY EDITION</div>' +
+            'MENU: REPLAY RESTARTS THE SESSION</div>' +
         '</div>' +
         '<div class="t98-brief-press">&#9654; PRESS ANY KEY TO CONVENE THE COUNCIL</div>' +
       '</div>';
