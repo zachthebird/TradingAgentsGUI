@@ -95,14 +95,15 @@
   function rewireMenus() {
     Array.prototype.forEach.call(document.querySelectorAll('.t98-menu-btn'), function (b) {
       if (b.textContent === 'SUMMON') b.textContent = 'REPLAY';
-      if (b.textContent === 'ADV UI') b.textContent = 'GB DEMO';
+      // ADV UI (the old Game Boy edition) is retired from the public demo —
+      // this terminal is the showcase. Hide the button rather than relabel it.
+      if (b.textContent === 'ADV UI') b.style.display = 'none';
     });
     // Capture phase beats the terminal's own handlers.
     document.addEventListener('click', function (e) {
       var b = e.target && e.target.closest ? e.target.closest('.t98-menu-btn') : null;
       if (!b) return;
       if (b.textContent === 'REPLAY') { e.stopPropagation(); e.preventDefault(); location.reload(); }
-      if (b.textContent === 'GB DEMO') { e.stopPropagation(); e.preventDefault(); location.href = '../'; }
     }, true);
   }
 
