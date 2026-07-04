@@ -1430,6 +1430,10 @@
     if (!ov) return;
     clearTimeout(timers.intro);
     if (S.introCleanup) { S.introCleanup(); S.introCleanup = null; }
+    // Mount the briefing BEFORE the title's power-off animation removes the
+    // overlay: the replay driver holds while either screen is present, so
+    // there must never be a frame with neither on the DOM.
+    showBriefing();
     if (REDUCED_MOTION) {
       ov.remove();
       return;
@@ -1438,6 +1442,57 @@
     setTimeout(function () { ov.remove(); }, 500);
   }
   window.__terminalDismissIntro = dismissIntro;
+
+  /* ── briefing / operation manual (between title and terminal) ──── */
+  function showBriefing() {
+    if (S.briefShown) return;
+    S.briefShown = true;
+    var ov = el('div');
+    ov.id = 't98-brief';
+    ov.innerHTML =
+      '<div class="t98-brief-win">' +
+        '<div class="t98-brief-title">OPERATION MANUAL — COUNCIL TERMINAL</div>' +
+        '<div class="t98-brief-body">' +
+          '<div class="t98-brief-h">&#9632; THE COUNCIL</div>' +
+          '<div class="t98-brief-p">EIGHT AI AGENTS — FOUR ANALYSTS, BULL &amp; BEAR RESEARCHERS, A RISK DESK, AND A HIGH JUDGE — DEBATE ONE STOCK AND RULE: BUY / SELL / HOLD.</div>' +
+          '<div class="t98-brief-h">&#9632; THIS SESSION</div>' +
+          '<div class="t98-brief-p">A GENUINE RECORDED RUN (AAPL), REPLAYED THROUGH THE LIVE TERMINAL. NO BACKEND &middot; NO API KEYS &middot; NOT FINANCIAL ADVICE. SELF-HOSTED, THE SAME TERMINAL RUNS LIVE.</div>' +
+          '<div class="t98-brief-h">&#9632; CONTROLS</div>' +
+          '<div class="t98-brief-p t98-brief-keys">' +
+            'SPACE / ENTER .... SKIP TYPING &middot; NEXT PAGE<br>' +
+            '&#9664; &#9654; ................. FLIP PAGES &nbsp;&nbsp; ESC .... CLOSE WINDOWS<br>' +
+            'MENU: REPLAY RESTARTS &middot; GB DEMO = GAME BOY EDITION</div>' +
+        '</div>' +
+        '<div class="t98-brief-press">&#9654; PRESS ANY KEY TO CONVENE THE COUNCIL</div>' +
+      '</div>';
+    D.root.appendChild(ov);
+
+    function onAnyKey(e) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      e.preventDefault();
+      e.stopPropagation();
+      dismissBriefing();
+    }
+    document.addEventListener('keydown', onAnyKey, true);
+    ov.addEventListener('click', dismissBriefing);
+    S.briefCleanup = function () { document.removeEventListener('keydown', onAnyKey, true); };
+    // Same walk-away rule as the title: never hold the demo hostage.
+    timers.brief = setTimeout(dismissBriefing, 14000);
+  }
+
+  function dismissBriefing() {
+    var ov = document.getElementById('t98-brief');
+    if (!ov) return;
+    clearTimeout(timers.brief);
+    if (S.briefCleanup) { S.briefCleanup(); S.briefCleanup = null; }
+    if (REDUCED_MOTION) {
+      ov.remove();
+      return;
+    }
+    ov.classList.add('t98-intro-off'); // reuse the CRT power-off collapse
+    setTimeout(function () { ov.remove(); }, 500);
+  }
+  window.__terminalDismissBriefing = dismissBriefing;
 
   /* ── boot ─────────────────────────────────────────────────────── */
   function boot() {

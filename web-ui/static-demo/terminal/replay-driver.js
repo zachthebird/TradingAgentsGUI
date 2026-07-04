@@ -110,7 +110,8 @@
     // Hold the replay while the box-art title screen is up (dismissed by
     // any key/click; the terminal auto-dismisses it after ~12s anyway).
     var t = setInterval(function () {
-      if (!document.getElementById('t98-intro')) { clearInterval(t); cb(); }
+      if (!document.getElementById('t98-intro') &&
+          !document.getElementById('t98-brief')) { clearInterval(t); cb(); }
     }, 250);
   }
 
