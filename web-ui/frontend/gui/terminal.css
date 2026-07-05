@@ -868,3 +868,62 @@ body.t98-mode { overflow: hidden; background: var(--t98-bg0); }
   .t98-advisor .t98-portrait-bezel img { width: 44px; height: 50px; }
   .t98-intro-art { max-height: 84vh; }
 }
+
+/* ═══ Printable council report — the ⬇ PDF action (Save as PDF) ═══════
+   Built by exportPdf() in terminal-live.js into #t98-print, then window.print().
+   Hidden on screen; in print we hide the live terminal and lay out the full
+   CLI-structured report as themed "paper". print-color-adjust:exact keeps the
+   PC-98 ink/maroon/cream palette in the saved PDF. */
+#t98-print { display: none; }
+
+@media print {
+  html, body { background: #fff !important; overflow: visible !important; margin: 0 !important; height: auto !important; }
+  body.t98-mode { overflow: visible !important; }
+  body > *:not(#t98-print) { display: none !important; }
+  @page { margin: 15mm 14mm; }
+
+  #t98-print {
+    display: block !important;
+    color: var(--t98-ink);
+    background: #fff;
+    font-family: var(--t98-font-mono);
+    font-size: 11.5pt; line-height: 1.5;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+
+  #t98-print .t98p-head { border-bottom: 3px double var(--t98-maroon); padding-bottom: 8px; margin-bottom: 16px; }
+  #t98-print .t98p-brand { font-family: var(--t98-font-dot); font-size: 8.5pt; letter-spacing: .22em; color: var(--t98-cyan-dim); text-transform: uppercase; }
+  #t98-print .t98p-ticker { font-family: var(--t98-font-dot); font-size: 30pt; color: var(--t98-maroon); margin: 3px 0 0; letter-spacing: .04em; line-height: 1; }
+  #t98-print .t98p-meta { font-size: 10pt; color: var(--t98-ink-soft); margin-top: 3px; }
+  #t98-print .t98p-seal { display: inline-block; margin-top: 9px; padding: 2px 14px; border: 3px solid; font-family: var(--t98-font-dot); font-size: 14pt; letter-spacing: .12em; }
+  #t98-print .t98p-seal.t98-buy  { color: #14682e; border-color: #14682e; }
+  #t98-print .t98p-seal.t98-sell { color: var(--t98-maroon); border-color: var(--t98-maroon); }
+  #t98-print .t98p-seal.t98-hold { color: #7a5a10; border-color: #7a5a10; }
+  #t98-print .t98p-cost { margin-top: 7px; font-size: 9pt; color: var(--t98-ink-soft); letter-spacing: .03em; }
+
+  #t98-print .t98p-part { margin-top: 18px; }
+  #t98-print .t98p-parth {
+    font-family: var(--t98-font-dot); font-size: 12.5pt; color: var(--t98-panel);
+    background: var(--t98-cream); border-left: 6px solid var(--t98-maroon);
+    padding: 4px 10px; letter-spacing: .05em; margin: 0 0 8px; page-break-after: avoid;
+  }
+  #t98-print .t98p-sec { margin: 10px 0 14px; page-break-inside: avoid; }
+  #t98-print .t98p-sech {
+    font-family: var(--t98-font-dot); font-size: 11pt; color: var(--t98-maroon);
+    border-bottom: 1px solid var(--t98-tan-dk); padding-bottom: 2px; margin: 0 0 6px; page-break-after: avoid;
+  }
+
+  #t98-print h1, #t98-print h2, #t98-print h3, #t98-print h4 { color: var(--t98-maroon); font-family: var(--t98-font-dot); margin: 10px 0 4px; line-height: 1.2; }
+  #t98-print h1 { font-size: 14pt; } #t98-print h2 { font-size: 12.5pt; } #t98-print h3 { font-size: 11pt; } #t98-print h4 { font-size: 10.5pt; }
+  #t98-print p { margin: 0 0 7px; }
+  #t98-print strong { color: var(--t98-maroon); }
+  #t98-print code { font-family: var(--t98-font-mono); font-size: 10pt; background: rgba(140, 35, 32, .08); padding: 0 3px; }
+  #t98-print hr { border: none; border-top: 1px dashed var(--t98-tan-dk); margin: 8px 0; }
+  #t98-print ul, #t98-print ol { margin: 0 0 8px 20px; }
+  #t98-print li { margin: 1px 0; }
+  #t98-print table { border-collapse: collapse; width: 100%; margin: 6px 0 10px; font-size: 9.5pt; }
+  #t98-print th, #t98-print td { border: 1px solid var(--t98-tan-dk); padding: 3px 6px; text-align: left; vertical-align: top; }
+  #t98-print th { background: var(--t98-cream); color: var(--t98-maroon); }
+  #t98-print blockquote { border-left: 3px solid var(--t98-tan-dk); margin: 6px 0; padding: 2px 10px; color: var(--t98-ink-soft); }
+  #t98-print .t98p-foot { margin-top: 22px; padding-top: 8px; border-top: 1px solid var(--t98-tan-dk); font-size: 8pt; color: var(--t98-ink-soft); letter-spacing: .03em; }
+}

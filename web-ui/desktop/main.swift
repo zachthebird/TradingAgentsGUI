@@ -71,7 +71,7 @@ font-family:monospace;display:flex;align-items:center;justify-content:center;hei
 </body></html>
 """
 
-class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKDownloadDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKDownloadDelegate, WKScriptMessageHandler {
     var window: NSWindow!
     var webView: WKWebView!
 
@@ -91,6 +91,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKDown
         } else {
             appLog("no token found in .env — web gate will handle auth")
         }
+
+        // Bridge JS window.print() → native macOS print panel. WKWebView
+        // ignores window.print() by default, so the web app's ⬇ PDF action
+        // (which calls window.print()) would silently no-op. Override it to
+        // post to a native handler that runs NSPrintOperation → "Save as PDF".
+        config.userContentController.add(self, name: "printReport")
+        config.userContentController.addUserScript(WKUserScript(
+            source: "window.print = function(){ try { window.webkit.messageHandlers.printReport.postMessage('print'); } catch (e) {} };",
+            injectionTime: .atDocumentStart, forMainFrameOnly: true))
+
         webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = self
         if #available(macOS 13.3, *) { webView.isInspectable = true }
@@ -196,6 +206,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKDown
                  navigationAction: WKNavigationAction,
                  didBecome download: WKDownload) {
         download.delegate = self
+    }
+
+    // ── native print (bridged from JS window.print) → offers "Save as PDF" ──
+    func userContentController(_ userContentController: WKUserContentController,
+                               didReceive message: WKScriptMessage) {
+        guard message.name == "printReport" else { return }
+        let op = webView.printOperation(with: NSPrintInfo.shared)
+        op.showsPrintPanel = true
+        op.showsProgressPanel = true
+        op.runModal(for: window, delegate: nil, didRun: nil, contextInfo: nil)
     }
 
     // ── downloads (EXPORT blob → ~/Downloads) ──────────────────────

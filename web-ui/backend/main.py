@@ -58,7 +58,7 @@ logger = logging.getLogger("tradingagents.api")
 
 # Resolve the *real* user home, even when running inside a Hermes profile
 # whose HOME is sandboxed to ~/.hermes/profiles/<name>/home/.  Derive it
-# from HERMES_HOME (e.g. /Users/zachb/.hermes/profiles/web-dev-backend).
+# from HERMES_HOME (e.g. ~/.hermes/profiles/<profile>).
 _hermes_home = os.environ.get("HERMES_HOME", "")
 if _hermes_home and "/.hermes/profiles/" in _hermes_home:
     _REAL_USER_HOME = Path(_hermes_home.split("/.hermes/profiles/")[0])
@@ -161,6 +161,11 @@ class BearerAuthMiddleware(BaseHTTPMiddleware):
                     return JSONResponse(status_code=413, content={"detail": "Request body too large."})
             except ValueError:
                 return JSONResponse(status_code=400, content={"detail": "Invalid Content-Length."})
+        elif request.method in ("POST", "PUT", "PATCH"):
+            # No Content-Length on a body-bearing request means chunked transfer,
+            # which would stream past the size cap above. This API's clients
+            # always send Content-Length, so require it (chunked bodies → 411).
+            return JSONResponse(status_code=411, content={"detail": "Content-Length required."})
 
         # Always allow health checks.
         if path == "/health":

@@ -309,7 +309,7 @@
 
     var menu = el('div', 't98-menu');
     D.menu = {};
-    [['summon', 'SUMMON'], ['index', 'INDEX'], ['log', 'LOG'], ['archive', 'ARCHIVE'], ['export', 'EXPORT'], ['adv', 'ADV UI']].forEach(function (m) {
+    [['summon', 'SUMMON'], ['index', 'INDEX'], ['log', 'LOG'], ['archive', 'ARCHIVE'], ['export', 'EXPORT'], ['pdf', '⬇ PDF'], ['adv', 'ADV UI']].forEach(function (m) {
       var b = el('button', 't98-menu-btn', m[1]);
       b.addEventListener('click', function () { onMenu(m[0]); });
       D.menu[m[0]] = b;
@@ -1147,6 +1147,8 @@
       openArchive();
     } else if (which === 'export') {
       exportSession();
+    } else if (which === 'pdf') {
+      exportPdf();
     } else if (which === 'adv') {
       try { localStorage.setItem('tradingagents_ui_mode', 'adv'); } catch (e) {}
       location.reload();
@@ -1247,6 +1249,89 @@
     a.click();
     setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 400);
     setWire('EXPORTED ' + a.download);
+  }
+
+  /* ── PDF report (browser "Save as PDF" via print) ─────────────── */
+  // Rebuilds the ORIGINAL CLI final-report layout — five ordered parts
+  // (Analyst → Research → Trading → Risk → Portfolio) — from the pages we
+  // streamed, renders a themed print document, and opens the print sheet.
+  // Works in any browser today; the desktop WKWebView needs its print
+  // bridge (see web-ui/desktop/main.swift).
+  var PDF_ANALYST_ORDER = { market_report: 0, sentiment_report: 1, news_report: 2, fundamentals_report: 3 };
+  var PDF_ANALYST_HEADING = {
+    market_report: 'Market Analyst', sentiment_report: 'Sentiment Analyst',
+    news_report: 'News Analyst', fundamentals_report: 'Fundamentals Analyst',
+  };
+  var PDF_PART_TITLES = [
+    'I. Analyst Team Reports', 'II. Research Team Decision', 'III. Trading Team Plan',
+    'IV. Risk Management Team Decision', 'V. Portfolio Manager Decision',
+  ];
+  function classifyForPdf(p) {
+    var node = normNode(p.node);
+    if (p.kind === 'report' && Object.prototype.hasOwnProperty.call(PDF_ANALYST_ORDER, p.section))
+      return { part: 0, ord: PDF_ANALYST_ORDER[p.section], heading: PDF_ANALYST_HEADING[p.section] };
+    if (p.kind === 'verdict') return { part: 4, ord: 0, heading: 'Portfolio Manager' };
+    if (p.kind === 'debate' && /bull/.test(node)) return { part: 1, ord: 0, heading: 'Bull Researcher' };
+    if (p.kind === 'debate' && /bear/.test(node)) return { part: 1, ord: 1, heading: 'Bear Researcher' };
+    if (p.kind === 'report' && p.section === 'trader_plan' && /research_manager|manager/.test(node))
+      return { part: 1, ord: 2, heading: 'Research Manager' };
+    if (p.kind === 'debate' && /manager/.test(node)) return { part: 1, ord: 2, heading: 'Research Manager' };
+    if (p.kind === 'report' && p.section === 'trader_plan') return { part: 2, ord: 0, heading: 'Trader' };
+    if (p.kind === 'debate' && /aggressive|risky/.test(node)) return { part: 3, ord: 0, heading: 'Aggressive Analyst' };
+    if (p.kind === 'debate' && /conservative|safe/.test(node)) return { part: 3, ord: 1, heading: 'Conservative Analyst' };
+    if (p.kind === 'debate' && /neutral/.test(node)) return { part: 3, ord: 2, heading: 'Neutral Analyst' };
+    if (p.kind === 'debate') return { part: 1, ord: 3, heading: p.exportTitle || p.title || 'Research Debate' };
+    return null; // system / error / unknown → appendix
+  }
+  function buildPrintDoc() {
+    var parts = [[], [], [], [], []], appendix = [];
+    S.pages.forEach(function (p) {
+      var body = p.exportBody || p.raw || '';
+      if (!body) return;
+      var c = classifyForPdf(p);
+      if (c) parts[c.part].push({ ord: c.ord, heading: c.heading, body: body });
+      else appendix.push({ ord: 0, heading: p.exportTitle || p.title || 'Note', body: body });
+    });
+    parts.forEach(function (arr) { arr.sort(function (a, b) { return a.ord - b.ord; }); });
+
+    var wrap = document.getElementById('t98-print');
+    if (!wrap) { wrap = document.createElement('div'); wrap.id = 't98-print'; document.body.appendChild(wrap); }
+    var sig = (S.verdict && S.verdict.signal) ? String(S.verdict.signal).toUpperCase() : '';
+    var sigCls = sig === 'BUY' ? 't98-buy' : sig === 'SELL' ? 't98-sell' : 't98-hold';
+    var h = [];
+    h.push('<header class="t98p-head">');
+    h.push('<div class="t98p-brand">TRADING AGENTS ▸ COUNCIL REPORT</div>');
+    h.push('<h1 class="t98p-ticker">' + esc(S.ticker || '—') + '</h1>');
+    h.push('<div class="t98p-meta">Trade date ' + esc(S.date || '—') + ' · report generated ' + esc(localToday()) + ' ' + esc(nowHMS()) + '</div>');
+    if (sig && sig !== '—') h.push('<div class="t98p-seal ' + sigCls + '">' + esc(sig) + '</div>');
+    if (S.usage) h.push('<div class="t98p-cost">RUN COST ' + esc(fmtCost(S.usage)) + '</div>');
+    h.push('</header>');
+
+    function renderSecs(arr) {
+      arr.forEach(function (it) {
+        h.push('<article class="t98p-sec"><h3 class="t98p-sech">' + esc(it.heading) + '</h3>' + mdToHtml(it.body) + '</article>');
+      });
+    }
+    parts.forEach(function (arr, i) {
+      if (!arr.length) return;
+      h.push('<section class="t98p-part"><h2 class="t98p-parth">' + esc(PDF_PART_TITLES[i]) + '</h2>');
+      renderSecs(arr);
+      h.push('</section>');
+    });
+    if (appendix.length) {
+      h.push('<section class="t98p-part"><h2 class="t98p-parth">Appendix</h2>');
+      renderSecs(appendix);
+      h.push('</section>');
+    }
+    h.push('<footer class="t98p-foot">Generated by TradingAgents · multi-agent research, not investment advice · built on TradingAgents by Tauric Research (Apache-2.0)</footer>');
+    wrap.innerHTML = h.join('');
+  }
+  function exportPdf() {
+    if (!S.pages.length) { setWire('NOTHING TO PRINT YET — RUN A COUNCIL FIRST'); return; }
+    buildPrintDoc();
+    setWire('OPENING PRINT SHEET — CHOOSE “SAVE AS PDF”');
+    // Let the print DOM paint before the (blocking) print dialog.
+    setTimeout(function () { try { window.print(); } catch (e) { setWire('PRINT UNAVAILABLE: ' + e.message); } }, 90);
   }
 
   /* ── price chart backdrop ─────────────────────────────────────── */
