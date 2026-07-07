@@ -497,7 +497,7 @@ class TokenMeter(_BaseCB):
 
 # Maximum time (seconds) a single analysis job is allowed to run before
 # the worker thread is considered stalled and the job is failed.
-JOB_TIMEOUT_SECONDS = int(os.environ.get("TRADINGAGENTS_JOB_TIMEOUT", "600"))
+JOB_TIMEOUT_SECONDS = int(os.environ.get("TRADINGAGENTS_JOB_TIMEOUT", "900"))
 
 # API-key env var per LLM provider.  Checked at analysis-submit time —
 # against the provider the request actually selects — so users get
@@ -542,6 +542,11 @@ def _build_config(request: AnalyzeRequest) -> Dict[str, Any]:
         # Minimal debate: no back-and-forth, just first-pass analysis
         cfg["max_debate_rounds"] = 0
         cfg["max_risk_discuss_rounds"] = 0
+    # Per-LLM-call resilience: cap a single hung/queued call (free-tier models
+    # queue) so one stall can't silently burn the whole run toward the job
+    # watchdog; retries ride out transient rate-limits/hiccups.
+    cfg["llm_timeout"] = int(os.getenv("TRADINGAGENTS_LLM_TIMEOUT", "180"))
+    cfg["llm_max_retries"] = int(os.getenv("TRADINGAGENTS_LLM_MAX_RETRIES", "3"))
     return cfg
 
 

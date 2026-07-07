@@ -655,6 +655,7 @@
     STAGES.forEach(function (st) { setStage(st.id, 'pending'); });
     S.activeNode = '';
     D.tick.textContent = ticker + ' · ' + date;
+    document.title = ticker + ' · ' + date;   // per-window label — the native app reflects this into the title bar
     setLink('warn', 'CONNECTING');
     setNow('SUMMONING THE COUNCIL…');
     setWire('POST /analyze — ' + ticker + ' ' + date);
@@ -776,6 +777,7 @@
     setNow('AWAITING ORDERS');
     setWire('STANDING BY');
     D.tick.textContent = '';
+    document.title = 'Trading Agents — Council Terminal';
     if (D.tickPrice) D.tickPrice.textContent = '';
     D.elapsed.textContent = 'T+00:00';
     D.lastData.textContent = '';
@@ -1199,6 +1201,7 @@
         S.pages = []; S.pageIdx = -1; S.seenPageKeys = {}; S.gotSections = {}; S.auto = false;
         S.verdict = null;
         D.tick.textContent = ticker + ' · ' + date + ' · ARCHIVE';
+        document.title = ticker + ' · ' + date + ' · ARCHIVE';
         setLink('', 'ARCHIVE');
         setNow('READING ARCHIVED SESSION ' + ticker + ' ' + date);
         setWire('ARCHIVE LOADED — USE INDEX / PREV / NEXT');

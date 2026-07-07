@@ -1,7 +1,11 @@
 // TradingAgentsGUI — native standalone wrapper for http://localhost:8000/gui/
-// Replaces the browser: one WKWebView window, own dock identity.
+// Replaces the browser: independent WKWebView windows, own dock identity.
 // - Health-checks the local server; kickstarts the launchd service if down.
+// - Cmd+N / File → New Window opens another independent terminal. Each window
+//   has its own WKWebView (own JS state, SSE stream, and analysis job), so you
+//   can run several tickers at once — the backend runs admin jobs concurrently.
 // - Blob downloads (the terminal's EXPORT) land in ~/Downloads.
+// - window.print() (the ⬇ PDF action) is bridged to the native print panel.
 // - Non-localhost links open in the default browser.
 import Cocoa
 import WebKit
@@ -11,6 +15,7 @@ let HEALTH_URL = "http://localhost:8000/health"
 let SERVICE = "ai.zachbird.tradingagents-app"
 let ENV_FILE = NSString(string: "~/Desktop/TradingAgents/.env").expandingTildeInPath
 let LOG_FILE = NSString(string: "~/Library/Logs/TradingAgentsGUI.log").expandingTildeInPath
+let BASE_TITLE = "TradingAgents — Council Terminal"
 
 func appLog(_ msg: String) {
     let line = "\(Date()) \(msg)\n"
@@ -71,13 +76,24 @@ font-family:monospace;display:flex;align-items:center;justify-content:center;hei
 </body></html>
 """
 
-class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKDownloadDelegate, WKScriptMessageHandler {
-    var window: NSWindow!
-    var webView: WKWebView!
+class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKDownloadDelegate,
+                   WKScriptMessageHandler, NSWindowDelegate {
+    // Open windows are retained here (isReleasedWhenClosed=false avoids the
+    // ARC double-free footgun); each also gets a KVO observer that reflects
+    // the page <title> (ticker) into the window title so windows are
+    // distinguishable. Both are torn down in windowWillClose.
+    var windows: [NSWindow] = []
+    var titleObs: [ObjectIdentifier: NSKeyValueObservation] = [:]
+    var serverReady = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMenu()
+        makeWindow()
+    }
 
+    // Create an independent terminal window.
+    @discardableResult
+    func makeWindow() -> NSWindow {
         let config = WKWebViewConfiguration()
         config.preferences.setValue(true, forKey: "developerExtrasEnabled")
         if let token = apiTokenFromEnv(),
@@ -87,66 +103,119 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKDown
             let js = "try { localStorage.setItem('tradingagents_token', (\(arr))[0]); } catch (e) {}"
             config.userContentController.addUserScript(
                 WKUserScript(source: js, injectionTime: .atDocumentStart, forMainFrameOnly: true))
-            appLog("token pre-seeded from .env")
         } else {
             appLog("no token found in .env — web gate will handle auth")
         }
 
         // Bridge JS window.print() → native macOS print panel. WKWebView
         // ignores window.print() by default, so the web app's ⬇ PDF action
-        // (which calls window.print()) would silently no-op. Override it to
-        // post to a native handler that runs NSPrintOperation → "Save as PDF".
+        // would silently no-op. Override it to post to a native handler that
+        // runs the print operation on the RIGHT window → "Save as PDF".
         config.userContentController.add(self, name: "printReport")
         config.userContentController.addUserScript(WKUserScript(
             source: "window.print = function(){ try { window.webkit.messageHandlers.printReport.postMessage('print'); } catch (e) {} };",
             injectionTime: .atDocumentStart, forMainFrameOnly: true))
 
-        webView = WKWebView(frame: .zero, configuration: config)
+        let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = self
         if #available(macOS 13.3, *) { webView.isInspectable = true }
 
-        window = NSWindow(
+        let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1440, height: 900),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered, defer: false)
-        window.title = "TradingAgents — Council Terminal"
+        window.title = BASE_TITLE
         window.minSize = NSSize(width: 900, height: 600)
         window.contentView = webView
-        window.setFrameAutosaveName("TradingAgentsGUIMain")
-        window.center()
+        window.isReleasedWhenClosed = false
+        window.delegate = self
+
+        if windows.isEmpty {
+            window.setFrameAutosaveName("TradingAgentsGUIMain")
+            window.center()
+        } else if let last = windows.last {
+            // Cascade so a new window doesn't land exactly on the previous one.
+            let f = last.frame
+            window.setFrame(NSRect(x: f.origin.x + 36, y: f.origin.y - 36,
+                                   width: f.width, height: f.height), display: false)
+        } else {
+            window.center()
+        }
+
+        // Reflect the page <title> (the web app sets it to the active ticker)
+        // into the window title so multiple windows are easy to tell apart.
+        let ob = webView.observe(\.title, options: [.new]) { [weak window] wv, _ in
+            guard let window = window else { return }
+            let t = (wv.title ?? "").trimmingCharacters(in: .whitespaces)
+            if t.isEmpty || t == "localhost" || t.contains("Council Terminal") {
+                window.title = BASE_TITLE
+            } else {
+                window.title = "\(t) — Council Terminal"   // e.g. "CTSH · 2026-07-06 — Council Terminal"
+            }
+        }
+        titleObs[ObjectIdentifier(window)] = ob
+
+        windows.append(window)
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
 
         webView.loadHTMLString(SPLASH, baseURL: nil)
 
-        DispatchQueue.global().async {
-            var up = serverUp()
-            if !up {
-                kickstartService()
-                for _ in 0..<30 {
-                    Thread.sleep(forTimeInterval: 0.5)
-                    if serverUp() { up = true; break }
+        if serverReady {
+            webView.load(URLRequest(url: URL(string: GUI_URL)!))
+        } else {
+            DispatchQueue.global().async {
+                var up = serverUp()
+                if !up {
+                    kickstartService()
+                    for _ in 0..<30 {
+                        Thread.sleep(forTimeInterval: 0.5)
+                        if serverUp() { up = true; break }
+                    }
                 }
-            }
-            DispatchQueue.main.async {
-                if up {
-                    self.webView.load(URLRequest(url: URL(string: GUI_URL)!))
-                } else {
-                    let alert = NSAlert()
-                    alert.alertStyle = .warning
-                    alert.messageText = "TradingAgents server did not come up"
-                    alert.informativeText = "Port 8000 never answered. Check:\nlaunchctl print gui/\(getuid())/\(SERVICE)"
-                    alert.runModal()
-                    NSApp.terminate(nil)
+                DispatchQueue.main.async {
+                    if up {
+                        self.serverReady = true
+                        webView.load(URLRequest(url: URL(string: GUI_URL)!))
+                    } else {
+                        let alert = NSAlert()
+                        alert.alertStyle = .warning
+                        alert.messageText = "TradingAgents server did not come up"
+                        alert.informativeText = "Port 8000 never answered. Check:\nlaunchctl print gui/\(getuid())/\(SERVICE)"
+                        alert.runModal()
+                        NSApp.terminate(nil)
+                    }
                 }
             }
         }
+        return window
+    }
+
+    @objc func newWindow() { makeWindow() }
+
+    // Tear down a closed window's retention + KVO observer.
+    func windowWillClose(_ notification: Notification) {
+        guard let w = notification.object as? NSWindow else { return }
+        titleObs[ObjectIdentifier(w)]?.invalidate()
+        titleObs[ObjectIdentifier(w)] = nil
+        windows.removeAll { $0 === w }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 
+    // Reopen a window when the dock icon is clicked with no windows open.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag { makeWindow() }
+        return true
+    }
+
+    func keyWebView() -> WKWebView? {
+        return (NSApp.keyWindow?.contentView as? WKWebView)
+            ?? (windows.first?.contentView as? WKWebView)
+    }
+
     @objc func reloadPage() {
-        webView.load(URLRequest(url: URL(string: GUI_URL)!))
+        keyWebView()?.load(URLRequest(url: URL(string: GUI_URL)!))
     }
 
     func buildMenu() {
@@ -161,6 +230,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKDown
         appMenu.addItem(withTitle: "Quit TradingAgentsGUI",
                         action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appItem.submenu = appMenu
+
+        // File menu: New Window (Cmd+N) opens another independent terminal.
+        let fileItem = NSMenuItem(); main.addItem(fileItem)
+        let file = NSMenu(title: "File")
+        let newWin = NSMenuItem(title: "New Window", action: #selector(newWindow), keyEquivalent: "n")
+        newWin.target = self
+        file.addItem(newWin)
+        file.addItem(withTitle: "Close Window", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        fileItem.submenu = file
 
         // Edit menu: without it, Cmd+C/V/X don't reach the web form fields.
         let editItem = NSMenuItem(); main.addItem(editItem)
@@ -180,6 +258,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKDown
         reload.target = self
         view.addItem(reload)
         viewItem.submenu = view
+
+        // Window menu: standard Minimize / Zoom / window list + cycling.
+        let windowItem = NSMenuItem(); main.addItem(windowItem)
+        let windowMenu = NSMenu(title: "Window")
+        windowMenu.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
+        windowMenu.addItem(withTitle: "Zoom", action: #selector(NSWindow.performZoom(_:)), keyEquivalent: "")
+        windowItem.submenu = windowMenu
+        NSApp.windowsMenu = windowMenu
 
         NSApp.mainMenu = main
     }
@@ -209,13 +295,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKDown
     }
 
     // ── native print (bridged from JS window.print) → offers "Save as PDF" ──
+    // Prints the webView that sent the message, attaching the sheet to ITS
+    // window — so ⬇ PDF prints the right ticker even with several windows open.
     func userContentController(_ userContentController: WKUserContentController,
                                didReceive message: WKScriptMessage) {
-        guard message.name == "printReport" else { return }
-        let op = webView.printOperation(with: NSPrintInfo.shared)
+        guard message.name == "printReport", let wv = message.webView, let win = wv.window else { return }
+        let op = wv.printOperation(with: NSPrintInfo.shared)
         op.showsPrintPanel = true
         op.showsProgressPanel = true
-        op.runModal(for: window, delegate: nil, didRun: nil, contextInfo: nil)
+        op.runModal(for: win, delegate: nil, didRun: nil, contextInfo: nil)
     }
 
     // ── downloads (EXPORT blob → ~/Downloads) ──────────────────────

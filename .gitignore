@@ -238,3 +238,8 @@ web-ui/tunnel.sh
 web-ui/start.sh
 web-ui/DEPLOY.md
 *.plist
+
+# graphify knowledge graph (generated, 2026-07 audit pilot)
+graphify-out/
+ai-vault/
+.graphifyignore

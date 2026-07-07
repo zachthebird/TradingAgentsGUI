@@ -160,6 +160,21 @@ class TradingAgentsGraph:
             if effort:
                 kwargs["effort"] = effort
 
+        # Per-call timeout + retries for the OpenAI-compatible clients, which
+        # forward these via _PASSTHROUGH_KWARGS. Skips google/anthropic (they
+        # take different param shapes) so this never breaks those providers.
+        _openai_family = {
+            "openai", "xai", "deepseek", "qwen", "qwen-cn", "glm", "glm-cn",
+            "minimax", "minimax-cn", "openrouter", "ollama",
+        }
+        if provider in _openai_family:
+            timeout = self.config.get("llm_timeout")
+            if timeout:
+                kwargs["timeout"] = timeout
+            max_retries = self.config.get("llm_max_retries")
+            if max_retries is not None:
+                kwargs["max_retries"] = max_retries
+
         return kwargs
 
     def _create_tool_nodes(self) -> Dict[str, ToolNode]:
