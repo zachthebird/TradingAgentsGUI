@@ -858,6 +858,23 @@ _FRAME_ANCESTORS = (
     "https://zacharybird.com https://www.zacharybird.com"
 )
 
+# Full CSP. Scripts are locked to 'self' — React/ReactDOM/Babel are now
+# vendored under gui/vendor/ (no runtime CDN), so a CDN compromise can no
+# longer inject script into visitors. 'unsafe-inline'/'unsafe-eval' remain
+# only because the page still uses inline bootstrap scripts + runtime Babel
+# JSX; dropping those (precompile + externalize) is a later build-step change.
+# Google Fonts is the sole allowed external origin (styles + font files).
+_CSP = (
+    "default-src 'self'; "
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+    "font-src 'self' https://fonts.gstatic.com data:; "
+    "img-src 'self' data: blob:; "
+    "connect-src 'self'; "
+    "base-uri 'self'; object-src 'none'; "
+    + _FRAME_ANCESTORS
+)
+
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Attach baseline security headers to every response."""
@@ -866,7 +883,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         resp = await call_next(request)
         resp.headers.setdefault("X-Content-Type-Options", "nosniff")
         resp.headers.setdefault("Referrer-Policy", "no-referrer")
-        resp.headers.setdefault("Content-Security-Policy", _FRAME_ANCESTORS)
+        resp.headers.setdefault("Content-Security-Policy", _CSP)
         return resp
 
 
@@ -1141,7 +1158,9 @@ async def list_reports(request: Request):
                 ReportSummary(
                     ticker=ticker_dir.name,
                     date=date_str,
-                    path=str(log_file),
+                    # Relative id only — don't leak the absolute results path
+                    # (OS username + home layout). The UI keys off ticker/date.
+                    path=f"{ticker_dir.name}/{date_str}",
                 )
             )
 
