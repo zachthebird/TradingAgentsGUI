@@ -649,7 +649,7 @@
     S.mode = 'running';
     S.ticker = ticker; S.date = date;
     S.pages = []; S.pageIdx = -1; S.seenPageKeys = {}; S.gotSections = {};
-    S.log = []; S.verdict = null; S.usage = null; S.auto = true;
+    S.log = []; S.verdict = null; S.usage = null; S.auto = true; S.stallWarned = false;
     if (D.cost) D.cost.textContent = '';
     S.startedAt = Date.now(); S.lastDataAt = 0; S.lastFrameAt = 0;
     STAGES.forEach(function (st) { setStage(st.id, 'pending'); });
@@ -1077,6 +1077,14 @@
       if (S.lastDataAt) {
         var ago = Math.floor((Date.now() - S.lastDataAt) / 1000);
         D.lastData.textContent = 'DATA ' + (ago < 3 ? 'NOW' : fmtElapsed(ago * 1000) + ' AGO');
+        // Stall watchdog: if real data stops arriving mid-run, say so once —
+        // don't sit on "RUNNING" silently until the server's 900s cap fires.
+        if (ago >= 120 && !S.stallWarned) {
+          S.stallWarned = true;
+          setWire('⚠ STREAM QUIET ' + fmtElapsed(ago * 1000) + ' — STILL WAITING ON THE COUNCIL…');
+        } else if (ago < 5 && S.stallWarned) {
+          S.stallWarned = false;   // data resumed
+        }
       }
       // active seat keeps "breathing" while we wait
       D.advisor.classList.toggle('t98-thinking', !S.typing);
@@ -1399,6 +1407,7 @@
       if (ser[i].v > vmax) vmax = ser[i].v;
     }
     if (!isFinite(min) || max <= min) return;
+    var rawMin = min, rawMax = max;   // true data extremes — axis labels use these, not the padded scale
     var span = max - min;
     min -= span * 0.06; max += span * 0.06;
     function X(idx) { return pad.l + (idx / (ser.length - 1)) * (w - pad.l - pad.r); }
@@ -1450,8 +1459,8 @@
     g.fillStyle = 'rgba(67, 217, 217, 0.8)';
     g.fillText(P.ticker + ' · ' + first.date + ' → ' + last.date, pad.l + 4, 24);
     g.fillStyle = 'rgba(27, 106, 118, 0.9)';
-    g.fillText(max.toFixed(0), 6, pad.t + 8);
-    g.fillText(min.toFixed(0), 6, h - pad.b);
+    g.fillText(rawMax.toFixed(0), 6, pad.t + 8);
+    g.fillText(rawMin.toFixed(0), 6, h - pad.b);
 
     // scanline sweep marker at latest candle
     g.strokeStyle = 'rgba(143, 245, 239, 0.35)';
