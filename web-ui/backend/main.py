@@ -552,8 +552,16 @@ def _build_config(request: AnalyzeRequest) -> Dict[str, Any]:
 
 
 def _safe_ticker_dir(ticker: str) -> str:
-    """Resolve safe directory name for a ticker."""
-    return safe_ticker_component(ticker)
+    """Resolve safe directory name for a ticker.
+
+    ``safe_ticker_component`` raises ``ValueError`` on a malformed ticker
+    (bad chars, over-length, dots-only); translate that into a clean 400 so
+    the report routes return a proper client error instead of a 500.
+    """
+    try:
+        return safe_ticker_component(ticker)
+    except ValueError:
+        raise HTTPException(400, f"Invalid ticker: {ticker!r}")
 
 
 # ── background runner ──────────────────────────────────────────────────
