@@ -992,6 +992,20 @@ async def analyze(req: AnalyzeRequest, request: Request):
     """
     # Fail closed: an unset tier defaults to the least-privileged guest, never admin.
     tier = getattr(request.state, "tier", "guest")
+    # Run attribution: behind a hosting proxy uvicorn only sees the internal
+    # peer, so log the forwarded client identity + referrer at every run
+    # start. This line is the only traffic-attribution record we have.
+    _client_ip = (
+        request.headers.get("cf-connecting-ip")
+        or (request.headers.get("x-forwarded-for") or "").split(",")[0].strip()
+        or (request.client.host if request.client else "?")
+    )
+    print(
+        f"RUN-START tier={tier} ticker={req.ticker!r} date={req.date!r} "
+        f"ip={_client_ip} ua={request.headers.get('user-agent', '-')!r} "
+        f"referer={request.headers.get('referer', '-')!r}",
+        flush=True,
+    )
     if tier == "guest":
         # Fail CLOSED: if the guest desk isn't fully configured with its own
         # dedicated provider AND key, refuse rather than silently falling back
