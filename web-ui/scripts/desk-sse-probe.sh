@@ -34,7 +34,7 @@ fi
 DATE=$(python3 -c "from datetime import date,timedelta;d=date.today()-timedelta(1)
 while d.weekday()>4: d-=timedelta(1)
 print(d)")
-JOB=$(curl -s --max-time 60 -X POST "$BASE/analyze" "${AUTH[@]}" -H 'Content-Type: application/json' \
+JOB=$(curl -s --max-time 60 -X POST "$BASE/analyze" ${AUTH[@]+"${AUTH[@]}"} -H 'Content-Type: application/json' \
   -d "{\"ticker\":\"KO\",\"date\":\"$DATE\",\"analysts\":[\"market\"],\"research_depth\":\"quick\"}" \
   | python3 -c "import sys,json
 d=json.load(sys.stdin); print(d.get('job_id') or 'ERR:'+str(d)[:120])")
