@@ -13,3 +13,6 @@ results
 eval_results
 Dockerfile
 docker-compose.yml
+.worktrees
+hardening
+*.log

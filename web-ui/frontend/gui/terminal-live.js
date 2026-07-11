@@ -1088,6 +1088,14 @@
       }
       // active seat keeps "breathing" while we wait
       D.advisor.classList.toggle('t98-thinking', !S.typing);
+      // Host keepalive: free-tier hosts (Render) only reset their idle
+      // spin-down timer on INBOUND requests — an open SSE stream doesn't
+      // count, so a long run on a quiet desk sits on the reaping boundary.
+      // Ping /health every 4 min while a run is live. Harmless locally.
+      if (!S.lastKeepalive || Date.now() - S.lastKeepalive > 240000) {
+        S.lastKeepalive = Date.now();
+        try { fetch('/health', { cache: 'no-store' }).catch(function () {}); } catch (e) {}
+      }
     }
   }
   function logEvt(type, text) {

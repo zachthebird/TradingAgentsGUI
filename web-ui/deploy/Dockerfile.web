@@ -1,0 +1,35 @@
+# TradingAgents live desk — web app image (backend API + PC-98 GUI).
+# NOTE: the repo-root Dockerfile builds the CLI only; this one runs the desk.
+# Build context must be the repo root:
+#   docker build -f web-ui/deploy/Dockerfile.web .
+# Used by render.yaml (Render free tier); also works on Cloud Run / any OCI host.
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1 \
+    # Cloud hosts front with their own TLS proxy; bind all interfaces.
+    HOST=0.0.0.0 \
+    # Free-tier filesystems are ephemeral — keep the run archive in /tmp.
+    TRADINGAGENTS_RESULTS_DIR=/tmp/tradingagents-logs
+
+WORKDIR /app
+
+# Install the tradingagents package + the web server deps (fastapi/uvicorn
+# live in web-ui/backend/requirements.txt, NOT in pyproject).
+COPY pyproject.toml README.md ./
+COPY tradingagents/ tradingagents/
+COPY cli/ cli/
+COPY web-ui/backend/requirements.txt web-ui/backend/requirements.txt
+RUN pip install . -r web-ui/backend/requirements.txt
+
+# App code (backend + the GUI it serves).
+COPY web-ui/backend/ web-ui/backend/
+COPY web-ui/frontend/ web-ui/frontend/
+
+RUN useradd --create-home app && mkdir -p /tmp/tradingagents-logs && chown -R app /tmp/tradingagents-logs
+USER app
+
+# main.py reads HOST + PORT from the environment (PORT injected by the host).
+CMD ["python", "web-ui/backend/main.py"]

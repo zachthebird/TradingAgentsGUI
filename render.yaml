@@ -1,0 +1,46 @@
+# Render Blueprint — TradingAgents public live desk on the FREE tier.
+# Deploy: dashboard.render.com → New + → Blueprint → pick this repo/branch.
+# Fill the sync:false secrets in the dashboard when prompted (see
+# web-ui/deploy/DEPLOY-RENDER.md for the full runbook + post-deploy probe).
+#
+# $0 posture: plan: free = no card, suspend-not-bill. Known free-tier
+# tradeoffs (documented in the runbook): ~1 min cold start after 15 min idle,
+# instance may restart at any time (kills an in-flight run), ephemeral disk.
+services:
+  - type: web
+    name: tradingagents-desk
+    runtime: docker
+    plan: free
+    dockerfilePath: ./web-ui/deploy/Dockerfile.web
+    dockerContext: .
+    healthCheckPath: /health
+    # Deploys are a manual decision (predeploy smoke-check first), not a
+    # side effect of pushing to the branch.
+    autoDeploy: false
+    envVars:
+      # ── Secrets: set values in the Render dashboard, never in git ──
+      # Admin token: generate FRESH for the cloud host (openssl rand -hex 32).
+      # Do NOT reuse the local desk's token across trust boundaries.
+      # CRITICAL: if unset, the backend runs in local-dev mode with the
+      # auth gate DISABLED — it must always be set on a public host.
+      - key: TRADINGAGENTS_API_TOKEN
+        sync: false
+      # OpenRouter key funding the guest desk (free Nemotron models).
+      - key: TRADINGAGENTS_GUEST_API_KEY
+        sync: false
+      # ── Guest desk (public tier) ──
+      - key: TRADINGAGENTS_GUEST_OPEN
+        value: "1"                # open public desk, no passcode
+      - key: TRADINGAGENTS_GUEST_PROVIDER
+        value: openrouter
+      - key: TRADINGAGENTS_GUEST_DEEP_LLM
+        value: nvidia/nemotron-3-super-120b-a12b:free
+      - key: TRADINGAGENTS_GUEST_QUICK_LLM
+        value: nvidia/nemotron-3-super-120b-a12b:free
+      # ── Reliability (mirrors the tuned local desk) ──
+      - key: TRADINGAGENTS_JOB_TIMEOUT
+        value: "900"
+      - key: TRADINGAGENTS_LLM_TIMEOUT
+        value: "180"
+      - key: TRADINGAGENTS_LLM_MAX_RETRIES
+        value: "3"

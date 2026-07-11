@@ -1124,7 +1124,12 @@ async def stream(job_id: str):
         _generator(),
         media_type="text/event-stream",
         headers={
-            "Cache-Control": "no-cache",
+            # `no-transform` is critical: it stops Cloudflare's edge (and the
+            # cloudflared quick tunnel) from compressing/buffering the SSE
+            # stream. Without it the edge buffers the whole response and the
+            # public /live desk receives 0 bytes until the run ends (looks
+            # frozen / "timing out"). X-Accel-Buffering:no covers nginx.
+            "Cache-Control": "no-cache, no-transform",
             "X-Accel-Buffering": "no",
             "Connection": "keep-alive",
         },
@@ -1354,7 +1359,8 @@ if __name__ == "__main__":
     uvicorn.run(
         app,
         host=os.getenv("HOST", "127.0.0.1"),
-        port=8000,
+        # PORT is injected by cloud hosts (Render, Cloud Run); 8000 locally.
+        port=int(os.getenv("PORT", "8000")),
         reload=False,
         log_level="info",
     )
